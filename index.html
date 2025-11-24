@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Onyx Animator</title>
+  <style>
+.slider-value{min-width:32px;text-align:right;font-size:0.75rem;opacity:0.8;display:inline-block;}
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    .app {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    h1 {
+      margin: 8px 12px;
+      font-size: 1.1rem;
+      color: #fbbf24;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #1f2937;
+      color: #e5e7eb;
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      transition: background 0.15s, transform 0.05s;
+      white-space: nowrap;
+    }
+    button:hover { background: #374151; }
+    button:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+    button.primary {
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
+    }
+    button.primary:hover { background: #16a34a; }
+    button.danger {
+      background: #b91c1c;
+    }
+    button.danger:hover { background: #ef4444; }
+    button.small { padding: 3px 8px; font-size: 0.75rem; }
+
+    label { font-size: 0.8rem; opacity: 0.9; }
+    input[type="range"] { width: 110px; }
+    input[type="number"] {
+      width: 60px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+    }
+    input[type="color"] {
+      border-radius: 999px;
+      border: none;
+      padding: 0;
+      width: 28px;
+      height: 28px;
+      background: transparent;
+      cursor: pointer;
+    }
+    select {
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+      padding: 2px 8px;
+    }
+    .info-text {
+      font-size: 0.8rem;
+      opacity: 0.9;
+    }
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    .top-bar {
+      padding: 4px 8px;
+      background: #020617;
+      border-bottom: 1px solid #111827;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .main-layout {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    .side-left {
+      width: 240px;
+      background: #020617;
+      border-right: 1px solid #111827;
+      display: flex;
+      flex-direction: column;
+      padding: 6px;
+      gap: 8px;
+    }
+    .side-right {
+      width: 340px;
+      background: #020617;
+      border-left: 1px solid #111827;
+      display: flex;
+      flex-direction: column;
+      padding: 6px;
+      gap: 6px;
+    }
+
+    .center-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 8px;
+      gap: 6px;
+    }
+
+    .panel-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #e5e7eb;
+    }
+
+    .tools-panel {
+      border-radius: 10px;
+      border: 1px solid #111827;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+    }
+    .tool-button {
+      justify-content: center;
+      padding: 4px 0;
+      font-size: 0.75rem;
+    }
+    .tool-button.active {
+      background: #0369a1;
+      color: #e5e7eb;
+    }
+
+    
+    .brush-palette {
+
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 32px);
+      gap: 4px;
+      padding: 4px;
+      margin-bottom: 4px;
+      background: #020617;
+      border-radius: 8px;
+      border: 1px solid #111827;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .brush-item {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid #1f2937;
+      background: radial-gradient(circle at 30% 30%, #1f2937, #020617);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .brush-item img {
+      max-width: 100%;
+      max-height: 100%;
+      image-rendering: crisp-edges;
+    }
+    .brush-item.active {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px #0ea5e9;
+    }
+.brush-color-panel {
+      border-radius: 10px;
+      border: 1px solid #111827;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .color-wheel-wrapper {
+      display: flex;
+      flex-direction: row;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+    }
+    .value-slider {
+      writing-mode: bt-lr;
+      -webkit-appearance: slider-vertical;
+      width: 16px;
+      height: 120px;
+    }
+    .value-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    #canvas-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: auto;
+      border-radius: 16px;
+      border: 2px solid #1f2937;
+      background: #111827;
+      min-height: 0;
+    }
+    canvas {
+      background: #ffffff;
+      border-radius: 16px;
+      border: none;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      touch-action: none;
+      transform-origin: 0 0;
+      max-width: none;
+      height: auto;
+    }
+    .fit-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      z-index: 5;
+    }
+
+    .xsheet-panel {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px solid #111827;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .xsheet-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .xsheet-wrapper {
+      flex: 1;
+      overflow: auto;
+      border-radius: 8px;
+      border: 1px solid #111827;
+      background: #020617;
+    }
+    table.xsheet {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 0.75rem;
+      table-layout: fixed;
+    }
+    .xsheet th, .xsheet td {
+      border: 1px solid #111827;
+      text-align: center;
+      padding: 2px 4px;
+      height: 18px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .xsheet th.layer-header {
+      background: #111827;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .layer-header-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      align-items: stretch;
+      font-size: 0.7rem;
+    }
+    .layer-header-title {
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+    .layer-opacity-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .layer-opacity-row input[type="range"] {
+      flex: 1;
+    }
+    .layer-opacity-value {
+      min-width: 24px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.8;
+      font-size: 0.7rem;
+    }
+    .layer-blend-select {
+      width: 100%;
+      font-size: 0.7rem;
+      background: #020617;
+      color: #e5e7eb;
+      border-radius: 4px;
+      border: 1px solid #111827;
+    }
+
+    .xsheet th.row-header,
+    .xsheet td.row-header {
+      background: #020617;
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      width: 50px;
+      min-width: 50px;
+      max-width: 50px;
+    }
+    .xsheet td.row-header {
+      z-index: 1;
+      font-weight: 500;
+      color: #9ca3af;
+    }
+    .xsheet td.cell {
+      cursor: pointer;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    .xsheet td.cell.drag-preview {
+      outline: 2px dashed #facc15;
+      outline-offset: -2px;
+      background: #374151;
+    }
+    .xsheet td.cell.has-drawing {
+      background: #1d283a;
+      color: #f9fafb;
+    }
+    .xsheet td.cell.selected {
+      outline: 2px solid #f97316;
+      outline-offset: -2px;
+      background: #7c2d12;
+    }
+
+    .bottom-bar {
+      padding: 4px 8px;
+      background: #020617;
+      border-top: 1px solid #111827;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .history-strip {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 4px;
+      border-radius: 6px;
+      border: 1px solid #111827;
+      background: #020617;
+      max-width: 40vw;
+      overflow-x: auto;
+    }
+    .history-item {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .history-item.filled {
+      background: #1d4ed8;
+    }
+    .history-item.current {
+      outline: 2px solid #fbbf24;
+      outline-offset: 1px;
+    }
+
+    @media (max-width: 980px) {
+      .main-layout {
+        flex-direction: column;
+      }
+      .side-left, .side-right {
+        width: 100%;
+        border: none;
+        border-top: 1px solid #111827;
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+      }
+      .tools-panel, .brush-color-panel, .xsheet-panel {
+        flex: 1;
+      }
+    }
+  
+    
+    .brush-palette.drag-over {
+      box-shadow: 0 0 0 1px #38bdf8;
+      border-color: #38bdf8;
+    }
+    .brush-context-menu {
+      position: fixed;
+      z-index: 2100;
+      background: #020617;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 4px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      display: none;
+      min-width: 120px;
+    }
+    .brush-context-menu button {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #e5e7eb;
+      text-align: left;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .brush-context-menu button:hover {
+      background: #1f2937;
+    }
+
+    .cell-context-menu {
+      position: fixed;
+      z-index: 2000;
+      background: #020617;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 4px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      display: none;
+      min-width: 160px;
+    }
+    .cell-context-menu button {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #e5e7eb;
+      text-align: left;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .cell-context-menu button:hover {
+      background: #1f2937;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Onyx Animator</h1>
+
+    <div class="top-bar">
+      <div class="group">
+
+<span class="info-text">Brush</span>
+        <label>
+	  Size:
+          <span id="brushSizeValue" class="slider-value"></span>
+          <input type="range" id="brushSize" min="0.1" max="255" step="0.1" value="8"> 
+        </label>
+        <label>Hard:
+	  <span id="hardnessValue" class="slider-value"></span>
+          <input type="range" id="hardnessRange" min="0" max="1" step="0.05" value="1"> 
+        </label>
+<label>Spacing:
+  <input type="range"
+         id="spacingRange"
+         min="0.10"
+         max="500.00"
+         step="0.05"
+         value="0.15">
+  <span id="spacingValue" class="slider-value"></span>
+</label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="pressureOpacityChk">
+          P→
+        </label>
+        <label>Opacity:
+          <input type="range" id="opacityRange" min="0.05" max="1" step="0.05" value="1"> <span id="opacityValue" class="slider-value"></span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="pressureFlowChk">
+          P→
+        </label>
+        <label>Flow:
+          <input type="range" id="flowRange" min="0.05" max="1" step="0.05" value="1"> <span id="flowValue" class="slider-value"></span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="lazyMouseChk">
+          Lazy mouse
+        </label>
+        <label>
+          <input type="range" id="lazyStrengthRange" min="0" max="0.95" step="0.05" value="0.5"> <span id="lazyStrengthValue" class="slider-value"></span>
+        </label>
+      </div>
+      <div class="group">
+        <label>FPS:
+          <input type="range" id="fpsRange" min="1" max="24" value="8">
+          <span id="fpsLabel">8</span>
+        </label>
+        <button id="playBtn" class="primary small">▶ Play</button>
+        <button id="inputModeBtn" class="small">Input: Tablet</button>
+      </div>
+    </div>
+
+    <div class="main-layout">
+      <div class="side-left">
+        <div class="tools-panel">
+          <div class="panel-title">Tools</div>
+          <div class="tool-grid" id="toolGrid">
+            <button class="tool-button active" data-tool="brush">Brush</button>
+            <button class="tool-button" data-tool="lasso">Lasso</button>
+            <button class="tool-button" data-tool="transform">Transform</button>
+            <button class="tool-button" data-tool="zoom">Zoom</button>
+            <button class="tool-button" data-tool="pan">Pan</button>
+          </div>
+          <button id="clearCellBtn" class="small">✕ Clear cell</button>
+          <span class="info-text">
+            Zoom: click (Shift = out). Pan: drag.
+          </span>
+        </div>
+
+        <div class="brush-color-panel">
+          <div class="panel-title">Brush &amp; Color</div>
+          <div class="group">
+            <label>Brush:
+              <select id="brushType">
+                <option value="soft">Soft</option>
+                <option value="hard">Hard</option>
+                <option value="pencil">Pencil</option>
+              </select>
+            </label>
+            <button id="eraserBtn" class="small">Eraser: Off</button>
+          </div>
+          <div id="brushPalette" class="brush-palette"></div>
+          <div class="color-wheel-wrapper">
+            <canvas id="colorWheel" width="140" height="140"></canvas>
+            <div class="value-wrapper">
+              <span style="font-size:0.75rem;">Val</span>
+              <input type="range" id="valueRange" class="value-slider" min="0" max="1" step="0.01" value="1">
+            </div>
+          </div>
+          <div class="group">
+            <label>Primary:
+              <input type="color" id="colorPicker" value="#000000">
+            </label>
+            <label>Secondary:
+              <input type="color" id="secondaryColor" value="#ffffff">
+            </label>
+            <button id="swapColorsBtn" class="small" title="Swap colors (X)">⇄</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="center-pane">
+        <div id="canvas-wrapper">
+          <button id="fitBtn" class="small fit-btn">Fit</button>
+          <canvas id="drawCanvas" width="1280" height="720"></canvas>
+        </div>
+      </div>
+
+      <div class="side-right">
+        <div class="xsheet-panel">
+          <div class="panel-title">Layers / X-Sheet</div>
+
+          <div class="xsheet-toolbar">
+            <div class="group">
+              <button id="addLayerBtn" class="small">➕ Layer</button>
+              <button id="removeLayerBtn" class="small danger">- Layer</button>
+              <button id="moveLayerLeftBtn" class="small">◀ Move</button>
+              <button id="moveLayerRightBtn" class="small">Move ▶</button>
+              <span class="info-text" id="layerInfo">Layer 1 selected</span>
+            </div>
+          </div>
+
+          <div class="xsheet-toolbar">
+            <div class="group">
+              <button id="addRowBtn" class="small">➕ Row</button>
+              <button id="removeRowBtn" class="small danger">- Row</button>
+            </div>
+            <div class="group">
+              <button id="increaseHoldBtn" class="small">Hold +</button>
+              <button id="decreaseHoldBtn" class="small">Hold -</button>
+              <label>Default hold:
+                <input type="number" id="defaultHoldInput" min="1" max="24" value="1">
+              </label>
+            </div>
+          </div>
+
+          <div class="xsheet-toolbar">
+            <div class="group">
+              <button id="prevRowBtn" class="small">◀ Row</button>
+              <button id="nextRowBtn" class="small">Row ▶</button>
+              <span class="info-text" id="rowInfo">Row 1 / 1</span>
+            </div>
+            <div class="group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="onionSkinChk">
+                Onion
+              </label>
+              <label>Range:
+                <input type="number" id="onionRange" min="1" max="5" value="1">
+              </label>
+            </div>
+          </div>
+
+          <div class="xsheet-wrapper">
+            <table class="xsheet" id="xsheetTable"></table>
+          </div>
+
+          <div class="xsheet-toolbar">
+            <div class="group">
+              <button id="exportCurrentBtn" class="small">Export current</button>
+              <button id="exportAllBtn" class="small">Export all</button>
+            </div>
+          </div>
+
+          <span class="info-text">
+            Click a cell to select. Shift+click to select a range.<br>
+            Cut/Copy/Paste work on the selection. Layers composite left→right.<br>
+            Onion previous = red, next = blue.
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="group">
+        <label>Doc:
+          W <input type="number" id="docWidth" min="1" max="4096" value="1280" min="16" max="4096">
+          H <input type="number" id="docHeight" min="1" max="4096" value="720" min="16" max="4096">
+        </label>
+        <button id="applyDocSizeBtn" class="small">Apply size</button>
+        <button id="fitBottomBtn" class="small">Fit</button>
+      </div>
+      <div class="group">
+        <span class="info-text">History:</span>
+        <div id="historyStrip" class="history-strip"></div>
+      </div>
+      <div class="group">
+        <button id="saveProjectBtn" class="small">💾 Save</button>
+        <button id="loadProjectBtn" class="small">📂 Load</button>
+        <input type="file" id="loadProjectInput" accept=".json" style="display:none;">
+      </div>
+    </div>
+  </div>
+
+
+  <div id="cellContextMenu" class="cell-context-menu">
+    <button data-action="cut">Cut selection</button>
+    <button data-action="copy">Copy selection</button>
+    <button data-action="paste">Paste selection</button>
+    <button data-action="duplicate">Duplicate down (cell)</button>
+  </div>
+
+  <script src="properties.js"></script>
+  <script src="colorwheel.js"></script>
+  <script src="xsheet.js"></script>
+  <script src="brushes_definitions.js"></script>
+  <script src="brushes.js"></script>
+  <script src="tools.js"></script>
+  <script src="playback_io.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
