@@ -91,39 +91,61 @@ function stampBrush(ctx, x, y, size, color, hardness, erase, opacity, flow) {
   ctx.restore();
 }
 
+var accumulatedDistance = 0;
+var lastStampX = null;
+var lastStampY = null;
+
 function stampLine(ctx, x0, y0, x1, y1, pressure) {
   var baseSize = parseFloat(brushSizeInput.value) || 1;
   baseSize = Math.max(0.1, baseSize);
   if (brushType === 'pencil') baseSize *= 0.6;
-
   var hardness = parseFloat(hardnessRange.value);
   var col = colorPicker.value;
   var erase = isEraser;
-
   var raw = (pressure != null ? pressure : 1);
   var p = Math.max(0, Math.min(1, raw));
-
   var sizePressure = 0.25 + 0.75 * p;
   var size = baseSize * sizePressure;
-
   var localOpacity = brushOpacity * (usePressureOpacity ? p : 1);
   var localFlow = brushFlow * (usePressureFlow ? p : 1);
-
+  
   var dx = x1 - x0;
   var dy = y1 - y0;
-  var dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
-
-
-var step = Math.max(0.1, size * spacingFactor);
-var steps = Math.ceil(dist / step);
-
-
-  for (var i = 0; i <= steps; i++) {
-    var t = i / steps;
-    var x = x0 + dx * t;
-    var y = y0 + dy * t;
-    stampBrush(ctx, x, y, size, col, hardness, erase, localOpacity, localFlow);
+  var dist = Math.sqrt(dx * dx + dy * dy);
+  
+  if (dist === 0) return;
+  
+  var spacing = Math.max(0.1, baseSize * spacingFactor);
+  
+  // If this is the first stamp of the stroke
+  if (lastStampX === null) {
+    stampBrush(ctx, x0, y0, size, col, hardness, erase, localOpacity, localFlow);
+    lastStampX = x0;
+    lastStampY = y0;
+    accumulatedDistance = 0;
   }
+  
+  accumulatedDistance += dist;
+  
+  // Place stamps at regular intervals
+  while (accumulatedDistance >= spacing) {
+    var ratio = (accumulatedDistance - spacing) / dist;
+    var tx = x1 - dx * ratio;
+    var ty = y1 - dy * ratio;
+    
+    stampBrush(ctx, tx, ty, size, col, hardness, erase, localOpacity, localFlow);
+    
+    lastStampX = tx;
+    lastStampY = ty;
+    accumulatedDistance -= spacing;
+  }
+}
+
+// Reset these when starting a new stroke (in your mousedown/pointerdown handler)
+function startNewStroke() {
+  accumulatedDistance = 0;
+  lastStampX = null;
+  lastStampY = null;
 }
 
 // LASSO & TRANSFORM
