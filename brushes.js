@@ -1,232 +1,291 @@
 // brushes.js
-// Texture brush library & palette for Onyx Animator.
-//
-// - Uses BRUSH_DEFINITIONS from brushes_definitions.js
-// - Builds a scrollable palette in #brushPalette
-// - Exposes getCurrentBrush() used by tools.js / stampBrush()
-// - Keeps brushType / brushTypeSelect in sync with brush.baseType
-// - Safe if definitions or DOM elements are missing
+// Brush library & UI palette with:
+// - Texture brushes using external brushes_definitions.js
+// - Scrollable palette
+// - Right-click context menu (Rename / Duplicate / Delete)
+// - Drag & drop PNG support
+// - Safe fallback if definitions file not loaded
 
-// Fallback if definitions file failed to load for some reason.
-if (typeof BRUSH_DEFINITIONS === "undefined") {
-  var BRUSH_DEFINITIONS = [];
+// If definitions file didn't load, fall back to empty list
+if (typeof BRUSH_DEFINITIONS === 'undefined') {
+    var BRUSH_DEFINITIONS = [];
 }
 
 var BrushLibrary = [];
 var currentBrush = null;
 var brushPaletteElement = null;
+var brushContextMenuElement = null;
 
-/**
- * Initialize the brush library and build the palette UI.
- * Called from main.js once the DOM is ready.
- */
+// -----------------------------------------------------
+// INIT
+// -----------------------------------------------------
+
 function initBrushLibrary() {
-  brushPaletteElement = document.getElementById("brushPalette");
-  if (!brushPaletteElement) {
-    // No palette in DOM – nothing else to do.
-    return;
-  }
+    brushPaletteElement = document.getElementById('brushPalette');
+    if (!brushPaletteElement) return;
 
-  // Build BrushLibrary from BRUSH_DEFINITIONS
-  BrushLibrary = [];
-  for (var i = 0; i < BRUSH_DEFINITIONS.length; i++) {
-    var def = BRUSH_DEFINITIONS[i];
-    if (!def || !def.file) continue;
-
-    var brush = {
-      id: def.id || ("brush_" + i),
-      name: def.name || def.id || ("Brush " + (i + 1)),
-      file: def.file,
-      baseType: def.baseType || "soft",
-      image: null,
-      isTexture: true
-    };
-
-    // Preload the image so stampBrush() can use its alpha.
-    var img = new Image();
-    img.src = brush.file;
-    brush.image = img;
-
-    BrushLibrary.push(brush);
-  }
-
-  // If no brushes defined, just clear palette and bail.
-  if (!BrushLibrary.length) {
-    brushPaletteElement.innerHTML = "";
+    BrushLibrary = [];
     currentBrush = null;
-    return;
-  }
 
-  // Default selection = first brush.
-  currentBrush = BrushLibrary[0];
+    // Load from external file
+    BRUSH_DEFINITIONS.forEach(function (def) {
+        if (!def || !def.file) return;
 
-  rebuildBrushPalette();
-  applyBrushSelectionToUI();
+        const img = new Image();
+        img.onload = function () {
+            const brush = {
+                id: def.id,
+                name: def.name,
+                file: def.file,
+                baseType: def.baseType || "soft",
+                image: img,
+                isTexture: true,
+                isCustom: false,
+                domElement: null,
+            };
+
+            BrushLibrary.push(brush);
+            rebuildBrushPalette();
+
+            // Select first brush automatically
+            if (!currentBrush) {
+                const idx = BrushLibrary.indexOf(brush);
+                if (idx >= 0) selectBrush(idx);
+            }
+        };
+
+        img.onerror = function () {
+            console.warn("Failed to load brush:", def.file);
+        };
+
+        img.src = def.file;
+    });
+
+    setupBrushPaletteDnD();
+    setupGlobalBrushContextMenuClose();
 }
 
-/**
- * Rebuild the palette DOM from BrushLibrary.
- */
+// -----------------------------------------------------
+// BUILD PALETTE
+// -----------------------------------------------------
+
 function rebuildBrushPalette() {
-  if (!brushPaletteElement) {
-    brushPaletteElement = document.getElementById("brushPalette");
-  }
-  if (!brushPaletteElement) return;
+    if (!brushPaletteElement) return;
+    brushPaletteElement.innerHTML = "";
 
-  // Clear existing items
-  while (brushPaletteElement.firstChild) {
-    brushPaletteElement.removeChild(brushPaletteElement.firstChild);
-  }
+    BrushLibrary.forEach((brush, i) => {
+        if (!brush || !brush.image) return;
 
-  for (var i = 0; i < BrushLibrary.length; i++) {
-    (function(index) {
-      var brush = BrushLibrary[index];
-      var item = document.createElement("button");
-      item.type = "button";
-      item.className = "brush-item";
-      item.title = brush.name;
-      item.dataset.index = index.toString();
+        const item = document.createElement("div");
+        item.className = "brush-item";
+        item.dataset.index = i;
 
-      // Simple visual: use the PNG as background if available
-      item.style.backgroundImage = "url('" + brush.file + "')";
-      item.style.backgroundSize = "cover";
-      item.style.backgroundPosition = "center center";
+        const img = document.createElement("img");
+        img.src = brush.image.src;
+        img.alt = brush.name || "";
+        item.title = brush.name || "";
+        item.appendChild(img);
 
-      if (currentBrush === brush) {
-        item.classList.add("selected");
-      }
+        // Left click: select
+        item.addEventListener("click", (evt) => {
+            evt.preventDefault();
+            selectBrush(i);
+        });
 
-      item.addEventListener("click", function () {
-        selectBrush(index);
-      });
+        // Right click: context menu
+        item.addEventListener("contextmenu", (evt) => {
+            evt.preventDefault();
+            showBrushContextMenu(i, evt.clientX, evt.clientY);
+        });
 
-      brushPaletteElement.appendChild(item);
-    })(i);
-  }
+        brush.domElement = item;
 
-  // Optional: simple drag & drop support for extra PNG brushes.
-  enableBrushPaletteDragAndDrop();
+        if (brush === currentBrush) item.classList.add("active");
+
+        brushPaletteElement.appendChild(item);
+    });
 }
 
-/**
- * Select brush by index.
- */
+// -----------------------------------------------------
+// SELECTION
+// -----------------------------------------------------
+
 function selectBrush(index) {
-  if (index < 0 || index >= BrushLibrary.length) return;
-  currentBrush = BrushLibrary[index];
+    if (index < 0 || index >= BrushLibrary.length) return;
 
-  // Update palette visual selection
-  if (brushPaletteElement) {
-    var items = brushPaletteElement.querySelectorAll(".brush-item");
-    for (var i = 0; i < items.length; i++) {
-      items[i].classList.toggle("selected", i === index);
-    }
-  }
+    currentBrush = BrushLibrary[index];
 
-  // Sync underlying baseType with brushTypeSelect if present
-  applyBrushSelectionToUI();
+    BrushLibrary.forEach((b, i) => {
+        if (!b.domElement) return;
+        b.domElement.classList.toggle("active", i === index);
+    });
+
+    // Sync with old engine
+    const base = currentBrush.baseType || "soft";
+    if (typeof brushType !== "undefined") brushType = base;
+    if (typeof brushTypeSelect !== "undefined" && brushTypeSelect)
+        brushTypeSelect.value = base;
 }
 
-/**
- * Sync selected brush with the existing base brush UI
- * (soft / hard / pencil) so spacing & hardness behaviour stay consistent.
- */
-function applyBrushSelectionToUI() {
-  if (!currentBrush) return;
-
-  // brushTypeSelect & brushType are defined in properties.js + main.js
-  if (typeof brushTypeSelect !== "undefined" && brushTypeSelect) {
-    var base = currentBrush.baseType || "soft";
-
-    // Check if such an option exists before assigning
-    var found = false;
-    for (var i = 0; i < brushTypeSelect.options.length; i++) {
-      if (brushTypeSelect.options[i].value === base) {
-        found = true;
-        break;
-      }
-    }
-
-    if (found) {
-      brushTypeSelect.value = base;
-      // Also update the global variable used by tools.js
-      if (typeof brushType !== "undefined") {
-        brushType = base;
-      }
-    }
-  }
-}
-
-/**
- * Exposed helper used by tools.js / stampBrush().
- */
 function getCurrentBrush() {
-  return currentBrush;
+    return currentBrush;
 }
 
-/**
- * Basic drag & drop: allow dropping PNGs into the palette to create
- * temporary session brushes. This is optional sugar – if it fails,
- * nothing critical breaks.
- */
-function enableBrushPaletteDragAndDrop() {
-  if (!brushPaletteElement) return;
+// -----------------------------------------------------
+// CONTEXT MENU
+// -----------------------------------------------------
 
-  // Only init once
-  if (brushPaletteElement._brushDnDInitialized) return;
-  brushPaletteElement._brushDnDInitialized = true;
+function ensureBrushContextMenu() {
+    if (brushContextMenuElement) return brushContextMenuElement;
 
-  brushPaletteElement.addEventListener("dragover", function (e) {
-    e.preventDefault();
-    brushPaletteElement.classList.add("drag-over");
-  });
+    const menu = document.createElement("div");
+    menu.className = "brush-context-menu";
+    menu.style.display = "none";
 
-  brushPaletteElement.addEventListener("dragleave", function (e) {
-    e.preventDefault();
-    brushPaletteElement.classList.remove("drag-over");
-  });
-
-  brushPaletteElement.addEventListener("drop", function (e) {
-    e.preventDefault();
-    brushPaletteElement.classList.remove("drag-over");
-    if (!e.dataTransfer || !e.dataTransfer.files) return;
-
-    var files = e.dataTransfer.files;
-    for (var i = 0; i < files.length; i++) {
-      var file = files[i];
-      if (!file.type || file.type.indexOf("image/") === -1) continue;
-      addBrushFromFile(file);
+    function makeButton(label, action) {
+        const btn = document.createElement("button");
+        btn.textContent = label;
+        btn.addEventListener("click", (evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            const index = parseInt(menu.dataset.index, 10);
+            hideBrushContextMenu();
+            action(index);
+        });
+        return btn;
     }
-  });
+
+    menu.appendChild(makeButton("Rename", renameBrushAt));
+    menu.appendChild(makeButton("Duplicate", duplicateBrushAt));
+    menu.appendChild(makeButton("Delete", deleteBrushAt));
+
+    document.body.appendChild(menu);
+    brushContextMenuElement = menu;
+
+    return menu;
 }
 
-/**
- * Create a new brush from a dropped PNG file (session-only).
- */
-function addBrushFromFile(file) {
-  if (!file) return;
+function showBrushContextMenu(index, x, y) {
+    const menu = ensureBrushContextMenu();
+    menu.dataset.index = index;
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+    menu.style.display = "block";
+}
 
-  var reader = new FileReader();
-  reader.onload = function (evt) {
-    var img = new Image();
-    img.onload = function () {
-      var brush = {
-        id: file.name,
-        name: file.name.replace(/\.[^.]+$/, ""),
-        file: evt.target.result, // data URL
-        baseType: "soft",
-        image: img,
-        isTexture: true
-      };
+function hideBrushContextMenu() {
+    if (brushContextMenuElement) brushContextMenuElement.style.display = "none";
+}
 
-      BrushLibrary.push(brush);
-      rebuildBrushPalette();
+function setupGlobalBrushContextMenuClose() {
+    document.addEventListener("click", hideBrushContextMenu);
+    window.addEventListener("blur", hideBrushContextMenu);
+}
 
-      // Auto-select the newly added brush
-      var idx = BrushLibrary.length - 1;
-      selectBrush(idx);
+// -----------------------------------------------------
+// CONTEXT MENU ACTIONS
+// -----------------------------------------------------
+
+function renameBrushAt(index) {
+    if (index < 0 || index >= BrushLibrary.length) return;
+
+    const brush = BrushLibrary[index];
+    const newName = window.prompt("Rename brush:", brush.name || "");
+    if (!newName) return;
+
+    brush.name = newName;
+    rebuildBrushPalette();
+}
+
+function duplicateBrushAt(index) {
+    if (index < 0 || index >= BrushLibrary.length) return;
+
+    const src = BrushLibrary[index];
+    const dup = {
+        id: src.id + "_copy_" + Date.now(),
+        name: (src.name || "Brush") + " Copy",
+        file: src.file,
+        baseType: src.baseType,
+        image: src.image,
+        isTexture: true,
+        isCustom: true,
+        domElement: null,
     };
-    img.src = evt.target.result;
-  };
-  reader.readAsDataURL(file);
+
+    BrushLibrary.splice(index + 1, 0, dup);
+    rebuildBrushPalette();
+    selectBrush(index + 1);
+}
+
+function deleteBrushAt(index) {
+    if (index < 0 || index >= BrushLibrary.length) return;
+    if (BrushLibrary.length <= 1) return;
+
+    const deleted = BrushLibrary[index];
+    BrushLibrary.splice(index, 1);
+
+    rebuildBrushPalette();
+
+    // Fix selection
+    if (currentBrush === deleted) selectBrush(0);
+}
+
+// -----------------------------------------------------
+// DRAG & DROP (CUSTOM PNG BRUSHES)
+// -----------------------------------------------------
+
+function setupBrushPaletteDnD() {
+    if (!brushPaletteElement) return;
+
+    brushPaletteElement.addEventListener("dragover", (evt) => {
+        evt.preventDefault();
+        brushPaletteElement.classList.add("drag-over");
+    });
+
+    brushPaletteElement.addEventListener("dragleave", (evt) => {
+        evt.preventDefault();
+        brushPaletteElement.classList.remove("drag-over");
+    });
+
+    brushPaletteElement.addEventListener("drop", (evt) => {
+        evt.preventDefault();
+        brushPaletteElement.classList.remove("drag-over");
+
+        const files = evt.dataTransfer?.files || [];
+        for (let f of files) {
+            if (f.type === "image/png" || f.name.toLowerCase().endsWith(".png"))
+                addCustomBrushFromFile(f);
+        }
+    });
+}
+
+function addCustomBrushFromFile(file) {
+    const reader = new FileReader();
+
+    reader.onload = function (evt) {
+        const img = new Image();
+
+        img.onload = function () {
+            const brush = {
+                id: "custom_" + Date.now(),
+                name: file.name.replace(/\.png$/i, ""),
+                file: null,
+                baseType: "soft",
+                image: img,
+                isTexture: true,
+                isCustom: true,
+                domElement: null,
+            };
+
+            BrushLibrary.push(brush);
+            rebuildBrushPalette();
+
+            const idx = BrushLibrary.indexOf(brush);
+            if (idx >= 0) selectBrush(idx);
+        };
+
+        img.src = evt.target.result;
+    };
+
+    reader.readAsDataURL(file);
 }

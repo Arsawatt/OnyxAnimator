@@ -25,7 +25,13 @@ function stampBrush(ctx, x, y, size, color, hardness, erase, opacity, flow) {
   if (typeof getCurrentBrush === 'function') {
     texBrush = getCurrentBrush();
   }
-  var useTexture = texBrush && texBrush.isTexture && texBrush.canUseTexture !== false && texBrush.image && texBrush.image.complete;
+
+  var mask = null;
+  if (texBrush && typeof BRUSH_MASKS !== 'undefined') {
+    mask = BRUSH_MASKS[texBrush.id] || BRUSH_MASKS[texBrush.maskId || texBrush.id];
+  }
+
+  var useTexture = mask && mask.data && mask.width && mask.height;
 
   if (useTexture) {
     // Size as integer for cleaner sampling.
@@ -35,23 +41,57 @@ function stampBrush(ctx, x, y, size, color, hardness, erase, opacity, flow) {
       textureBrushCanvas.height = sizeInt;
     }
 
-    // Clear buffer.
-    textureBrushCtx.clearRect(0, 0, sizeInt, sizeInt);
+    var tctx = textureBrushCtx;
+    var w0 = mask.width;
+    var h0 = mask.height;
+    var srcData = mask.data;
+    var imgData = tctx.createImageData(sizeInt, sizeInt);
+    var dst = imgData.data;
 
-    // Fill with brush color (tint).
-    // Hardness acts as a simple multiplier on opacity so you still feel it.
-    var hardnessFactor = 0.3 + 0.7 * Math.max(0, Math.min(1, hardness));
-    var localAlpha = a * hardnessFactor;
-    textureBrushCtx.globalCompositeOperation = 'source-over';
-    textureBrushCtx.fillStyle = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + localAlpha + ')';
-    textureBrushCtx.fillRect(0, 0, sizeInt, sizeInt);
+    // Build tinted brush from alpha mask using bilinear interpolation.
+    for (var iy = 0; iy < sizeInt; iy++) {
+      var v = (sizeInt <= 1) ? 0 : iy / (sizeInt - 1);
+      var my = v * (h0 - 1);
+      var y0 = Math.floor(my);
+      var y1 = Math.min(y0 + 1, h0 - 1);
+      var ty = my - y0;
 
-    // Use the PNG as an alpha mask.
-    textureBrushCtx.globalCompositeOperation = 'destination-in';
-    textureBrushCtx.drawImage(texBrush.image, 0, 0, sizeInt, sizeInt);
+      for (var ix = 0; ix < sizeInt; ix++) {
+        var u = (sizeInt <= 1) ? 0 : ix / (sizeInt - 1);
+        var mx = u * (w0 - 1);
+        var x0 = Math.floor(mx);
+        var x1 = Math.min(x0 + 1, w0 - 1);
+        var tx = mx - x0;
+
+        var idx00 = y0 * w0 + x0;
+        var idx10 = y0 * w0 + x1;
+        var idx01 = y1 * w0 + x0;
+        var idx11 = y1 * w0 + x1;
+
+        var a00 = srcData[idx00];
+        var a10 = srcData[idx10];
+        var a01 = srcData[idx01];
+        var a11 = srcData[idx11];
+
+        var a0x = a00 * (1 - tx) + a10 * tx;
+        var a1x = a01 * (1 - tx) + a11 * tx;
+        var alphaMask = a0x * (1 - ty) + a1x * ty; // 0..255
+
+        // Combine mask with brush opacity/flow.
+        var outA = alphaMask * a; // a is 0..1
+        var di = (iy * sizeInt + ix) * 4;
+        dst[di    ] = rgb.r;
+        dst[di + 1] = rgb.g;
+        dst[di + 2] = rgb.b;
+        dst[di + 3] = Math.max(0, Math.min(255, outA));
+      }
+    }
+
+    tctx.putImageData(imgData, 0, 0);
 
     // Stamp onto destination.
     ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1.0;
     ctx.drawImage(textureBrushCanvas, x - sizeInt / 2, y - sizeInt / 2);
   } else {
     // Fallback to the original procedural brushes (soft/hard/pencil).
