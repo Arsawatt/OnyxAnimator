@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 86853cf9904fc5343b249dc178dfc48ebecc20cc
 
 // Offscreen canvas used to tint and stamp texture brushes.
 var textureBrushCanvas = document.createElement('canvas');
@@ -136,6 +139,7 @@ var accumulatedDistance = 0;
 var lastStampX = null;
 var lastStampY = null;
 
+<<<<<<< HEAD
 =======
 
 // Offscreen canvas used to tint and stamp texture brushes.
@@ -235,6 +239,8 @@ var lastStampX = null;
 var lastStampY = null;
 
 >>>>>>> 5e0adec67e46265d94e8cd913a8d2ed2c72e947c
+=======
+>>>>>>> 86853cf9904fc5343b249dc178dfc48ebecc20cc
 function stampLine(ctx, x0, y0, x1, y1, pressure) {
   var baseSize = parseFloat(brushSizeInput.value) || 1;
   baseSize = Math.max(0.1, baseSize);
