@@ -89,6 +89,7 @@ window.addEventListener('DOMContentLoaded', function() {
   loadProjectInput = document.getElementById('loadProjectInput');
   pressureOpacityChk = document.getElementById('pressureOpacityChk');
   pressureFlowChk = document.getElementById('pressureFlowChk');
+  simulatePressureChk = document.getElementById('simulatePressureChk'); // NEW
   fitBtn = document.getElementById('fitBtn');
   fitBottomBtn = document.getElementById('fitBottomBtn');
   inputModeBtn = document.getElementById('inputModeBtn');
@@ -117,6 +118,7 @@ window.addEventListener('DOMContentLoaded', function() {
   defaultHold = parseInt(defaultHoldInput.value, 10) || 1;
   usePressureOpacity = false;
   usePressureFlow = false;
+    simulatePressure = false; // NEW default
   zoomLevel = 1;
   panX = 0;
   panY = 0;
@@ -184,6 +186,10 @@ window.addEventListener('DOMContentLoaded', function() {
   });
   pressureFlowChk.addEventListener('change', function() {
     usePressureFlow = pressureFlowChk.checked;
+  });
+    // NEW: simulate pressure checkbox
+  simulatePressureChk.addEventListener('change', function() {
+    simulatePressure = simulatePressureChk.checked;
   });
 
 //clear button

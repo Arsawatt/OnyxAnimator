@@ -479,6 +479,13 @@ function onPointerDown(evt) {
     isDrawing = true;
     hasStrokeStarted = false;
 
+	//new line
+	hasLazyPos = false;
+    hasStrokeStarted = false;
+
+	// NEW: reset simulated pressure distance
+	totalStrokeDistance = 0;
+
     var rawP = (evt.pressure !== undefined ? evt.pressure : 0);
     var isPen = (evt.pointerType === 'pen');
     var hasP = !isPen || rawP > PRESSURE_THRESHOLD;
@@ -574,8 +581,33 @@ function onPointerMove(evt) {
     var pressure;
 
     if (!isPen || rawPressure == null) {
-      // Mouse or unknown pointer type → constant pressure
-      pressure = 1;
+  // --- Mouse or non-pen input ---
+  if (simulatePressure) {
+    // Fake a pressure ramp based on stroke distance.
+    // 1) On very first move (before stroke started) just seed a low pressure
+    if (!hasStrokeStarted) {
+      pressure = 0.2;
+      totalStrokeDistance = 0;
+    } else {
+      // 2) Accumulate distance from last point
+      var dxp = pos.x - lastX;
+      var dyp = pos.y - lastY;
+      var stepDist = Math.sqrt(dxp * dxp + dyp * dyp) || 0;
+      totalStrokeDistance += stepDist;
+
+      // Ramp distance: how far before we hit full pressure (in pixels)
+      var baseSize = parseFloat(brushSizeInput.value) || 10;
+      baseSize = Math.max(1, baseSize);
+      var rampDist = baseSize * 2.5; // tweakable
+
+      var t = Math.max(0, Math.min(1, totalStrokeDistance / rampDist));
+      // Ease-out curve from ~0.2 to 1.0
+      pressure = 0.2 + 0.8 * t;
+    }
+  } else {
+    // Normal mouse behavior: constant full pressure
+    pressure = 1;
+  }
     } else {
       // Pen input
       if (hasStrokeStarted && rawPressure <= PRESSURE_THRESHOLD) {
@@ -690,6 +722,9 @@ function onPointerUp(evt) {
     isDrawing = false;
     hasLazyPos = false;
     hasStrokeStarted = false;
+
+	// NEW: reset simulated pressure distance at end of stroke
+	totalStrokeDistance = 0;
 
     // End of brush stroke: push history entry if any
     if (strokeRow >= 0 && strokeLayer >= 0) {

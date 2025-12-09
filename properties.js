@@ -40,6 +40,10 @@ var lazyX = 0, lazyY = 0, hasLazyPos = false;
 var PRESSURE_THRESHOLD = 0.05;
 var hasStrokeStarted = false;
 
+// Simulated pressure for non-pen input
+var simulatePressure = false;       // controlled from UI
+var totalStrokeDistance = 0;        // distance travelled in current stroke (for fake pressure ramp)
+
 var defaultHold = 1;
 
 var isLassoDrawing = false, lassoPoints = [];

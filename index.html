@@ -548,13 +548,22 @@
         <label>Flow:
           <input type="range" id="flowRange" min="0.05" max="1" step="0.05" value="1"> <span id="flowValue" class="slider-value"></span>
         </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="lazyMouseChk">
-          Lazy mouse
-        </label>
-        <label>
-          <input type="range" id="lazyStrengthRange" min="0" max="0.95" step="0.05" value="0.5"> <span id="lazyStrengthValue" class="slider-value"></span>
-        </label>
+		<label class="checkbox-label">
+		<input type="checkbox" id="lazyMouseChk">
+		Lazy mouse
+		</label>
+
+		<!-- NEW: simulate pressure checkbox -->
+		<label class="checkbox-label">
+		<input type="checkbox" id="simulatePressureChk">
+		Sim pressure
+		</label>
+
+		<label>
+		<input type="range" id="lazyStrengthRange" min="0" max="1" step="0.01" value="0.5">
+		<span id="lazyStrengthValue">0.50</span>
+		</label>
+
       </div>
       <div class="group">
         <label>FPS:
