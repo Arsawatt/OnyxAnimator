@@ -33,16 +33,18 @@ function initBrushLibrary() {
 
         const img = new Image();
         img.onload = function () {
-            const brush = {
-                id: def.id,
-                name: def.name,
-                file: def.file,
-                baseType: def.baseType || "soft",
-                image: img,
-                isTexture: true,
-                isCustom: false,
-                domElement: null,
-            };
+const brush = {
+    id: def.id,
+    name: def.name,
+    file: def.file,
+    baseType: def.baseType || "soft",
+    preset: def.preset || null,  // <--- NEW
+    image: img,
+    isTexture: true,
+    isCustom: false,
+    domElement: null,
+};
+
 
             BrushLibrary.push(brush);
             rebuildBrushPalette();
@@ -125,6 +127,72 @@ function selectBrush(index) {
     if (typeof brushType !== "undefined") brushType = base;
     if (typeof brushTypeSelect !== "undefined" && brushTypeSelect)
         brushTypeSelect.value = base;
+
+    // NEW: apply per-brush preset to the UI and globals
+    applyBrushPreset(currentBrush);
+}
+
+function applyBrushPreset(brush) {
+    if (!brush || !brush.preset) return;
+    const p = brush.preset;
+
+    // Size
+    if (typeof brushSizeInput !== "undefined" && brushSizeInput && p.size != null) {
+        brushSizeInput.value = p.size;
+        if (brushSizeValueLabel) {
+            brushSizeValueLabel.textContent = (parseFloat(p.size) || 0).toFixed(1);
+        }
+    }
+
+    // Hardness
+    if (typeof hardnessRange !== "undefined" && hardnessRange && p.hardness != null) {
+        hardnessRange.value = p.hardness;
+        if (hardnessValueLabel) {
+            hardnessValueLabel.textContent = (parseFloat(p.hardness) || 0).toFixed(2);
+        }
+    }
+
+    // Spacing
+    if (typeof spacingRange !== "undefined" && spacingRange && p.spacing != null) {
+        spacingRange.value = p.spacing;
+        spacingFactor = parseFloat(p.spacing) || 0.35;
+        if (spacingValueLabel) {
+            spacingValueLabel.textContent = spacingFactor.toFixed(2);
+        }
+    }
+
+    // Pressure → Opacity
+    if (typeof pressureOpacityChk !== "undefined" && pressureOpacityChk && p.pressureOpacity != null) {
+        pressureOpacityChk.checked = !!p.pressureOpacity;
+        usePressureOpacity = pressureOpacityChk.checked;
+    }
+
+    // Pressure → Flow
+    if (typeof pressureFlowChk !== "undefined" && pressureFlowChk && p.pressureFlow != null) {
+        pressureFlowChk.checked = !!p.pressureFlow;
+        usePressureFlow = pressureFlowChk.checked;
+    }
+
+    // Lazy mouse on/off
+    if (typeof lazyMouseChk !== "undefined" && lazyMouseChk && p.lazy != null) {
+        lazyMouseChk.checked = !!p.lazy;
+        lazyEnabled = lazyMouseChk.checked;
+    }
+
+    // Lazy strength
+    if (typeof lazyStrengthRange !== "undefined" && lazyStrengthRange && p.lazyStrength != null) {
+        lazyStrengthRange.value = p.lazyStrength;
+        lazyStrength = parseFloat(p.lazyStrength) || 0;
+        if (lazyStrengthValueLabel) {
+            lazyStrengthValueLabel.textContent = lazyStrength.toFixed(2);
+        }
+    }
+
+    // Simulated pressure
+    if (typeof simulatePressureChk !== "undefined" && simulatePressureChk && p.simulatePressure != null) {
+        simulatePressureChk.checked = !!p.simulatePressure;
+        simulatePressure = simulatePressureChk.checked;
+    }
 }
 
 function getCurrentBrush() {
