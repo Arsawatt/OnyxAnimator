@@ -2,7 +2,7 @@
 // Generated from contents of the 'brushes' folder.
 
 var BRUSH_DEFINITIONS = [
-  { id: 'brush_01', name: 'Brush 01', file: 'brushes/brush_01.png', baseType: 'soft' },
+  { id: 'brush_01', name: 'Brush 01', file: 'brushes/brush_01.png', baseType: 'pencil' },
   { id: 'brush_pencil_soft_01', name: 'Brush Pencil Soft 01', file: 'brushes/brush_Pencil_soft_01.png', baseType: 'pencil' },
   { id: 'brush_cloud_01', name: 'Brush Cloud 01', file: 'brushes/brush_cloud_01.png', baseType: 'soft' },
   { id: 'brush_flat_oval_01', name: 'Brush Flat Oval 01', file: 'brushes/brush_flat_oval_01.png', baseType: 'soft' },
