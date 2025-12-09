@@ -1,3 +1,4 @@
+<!-- MODIFIED: Added picker mode toggle, wheel wrapper, and simple SV picker -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -612,6 +613,14 @@
               <input type="range" id="valueRange" class="value-slider" min="0" max="1" step="0.01" value="1">
             </div>
           </div>
+          <div class="color-wheel-wrapper" id="simplePickerUI">
+            <canvas id="simpleColorSV" width="140" height="110"></canvas>
+            <div class="value-wrapper">
+              <span style="font-size:0.75rem;">Hue</span>
+              <input type="range" id="simpleHueRange" class="value-slider" min="0" max="1" step="0.01" value="0">
+            </div>
+          </div>
+
           <div class="group">
             <label>Primary:
               <input type="color" id="colorPicker" value="#000000">

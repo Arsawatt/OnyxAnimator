@@ -1,3 +1,4 @@
+// MODIFIED: Wired simple color picker (SV + Hue) and picker mode toggle
 window.addEventListener('DOMContentLoaded', function() {
   displayCanvas = document.getElementById('drawCanvas');
   displayCtx = displayCanvas.getContext('2d');
@@ -5,6 +6,9 @@ window.addEventListener('DOMContentLoaded', function() {
   colorWheelCanvas = document.getElementById('colorWheel');
   colorWheelCtx = colorWheelCanvas.getContext('2d');
   valueRange = document.getElementById('valueRange');
+  simpleSVCanvas = document.getElementById('simpleColorSV');
+  simpleSVCtx = simpleSVCanvas ? simpleSVCanvas.getContext('2d') : null;
+  simpleHueRange = document.getElementById('simpleHueRange');
 
   brushSizeInput = document.getElementById('brushSize');
   hardnessRange = document.getElementById('hardnessRange');
@@ -47,7 +51,11 @@ window.addEventListener('DOMContentLoaded', function() {
         currentSat = hsv.s;
         currentVal = hsv.v;
         if (valueRange) valueRange.value = currentVal.toFixed(2);
-        if (typeof renderColorWheel === 'function') renderColorWheel();
+        if (typeof refreshColorPickers === 'function') {
+          refreshColorPickers();
+        } else if (typeof renderColorWheel === 'function') {
+          renderColorWheel();
+        }
       }
     });
   }
@@ -138,8 +146,31 @@ window.addEventListener('DOMContentLoaded', function() {
   valueRange.addEventListener('input', function() {
     currentVal = parseFloat(valueRange.value) || 1;
     updateBrushColorFromHSV();
-    renderColorWheel();
+    if (typeof refreshColorPickers === 'function') {
+      refreshColorPickers();
+    } else if (typeof renderColorWheel === 'function') {
+      renderColorWheel();
+    }
   });
+
+  // Simple (SV square + hue) picker
+  if (typeof simpleSVCanvas !== 'undefined' && simpleSVCanvas) {
+    simpleSVCanvas.addEventListener('pointerdown', function(e) {
+      if (typeof pickColorFromSimple === 'function') pickColorFromSimple(e);
+    });
+    simpleSVCanvas.addEventListener('pointermove', function(e) {
+      if (e.buttons && typeof pickColorFromSimple === 'function') pickColorFromSimple(e);
+    });
+  }
+  if (typeof simpleHueRange !== 'undefined' && simpleHueRange) {
+    simpleHueRange.addEventListener('input', function() {
+      currentHue = parseFloat(simpleHueRange.value) || 0;
+      updateBrushColorFromHSV();
+      if (typeof refreshColorPickers === 'function') {
+        refreshColorPickers();
+      }
+    });
+  }
 
   eraserBtn.addEventListener('click', function() {
     isEraser = !isEraser;
@@ -277,7 +308,11 @@ currentHue = 0;
 currentSat = 0;
 currentVal = 0;
 updateBrushColorFromHSV();
-renderColorWheel();
+if (typeof refreshColorPickers === 'function') {
+  refreshColorPickers();
+} else if (typeof renderColorWheel === 'function') {
+  renderColorWheel();
+}
 
   docWidthInput.value = displayCanvas.width;
   docHeightInput.value = displayCanvas.height;
@@ -286,11 +321,17 @@ renderColorWheel();
 });
 
 function setToolMode(mode) {
-  commitActiveSelection();
+  // Only auto-commit when we are *leaving* transform mode,
+  // not when entering it.
+  if (toolMode === 'transform' && mode !== 'transform') {
+    commitActiveSelection();
+  }
+
   toolMode = mode;
   isLassoDrawing = false;
   isTransformDragging = false;
   isPanning = false;
+
   if (toolGrid) {
     toolGrid.querySelectorAll('.tool-button').forEach(function(btn) {
       var m = btn.getAttribute('data-tool');
@@ -298,8 +339,10 @@ function setToolMode(mode) {
       else btn.classList.remove('active');
     });
   }
+
   redrawDisplay();
 }
+
 
 
 function fitDocumentToWindow() {

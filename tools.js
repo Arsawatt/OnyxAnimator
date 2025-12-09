@@ -192,91 +192,198 @@ function startNewStroke() {
 
 function createSelectionFromLasso() {
   if (lassoPoints.length < 3) return;
-  var cell = xsheet[selectedRow][selectedLayer];
-  if (!cell.drawing) return;
+  if (selectedRow < 0 || selectedLayer < 0) return;
 
-  var src = cell.drawing;
-  var srcCtx = src.getContext('2d');
+  var row = selectedRow;
+  var layer = selectedLayer;
 
-  var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  lassoPoints.forEach(function(p) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
+  var cell = xsheet[row][layer];
+  if (!cell || !cell.drawing) return;
+
+  var srcCanvas = cell.drawing;
+  var srcCtx = srcCanvas.getContext('2d');
+
+  // --- history: snapshot BEFORE cut ---
+  var beforeImg = captureCellImage(row, layer);
+
+  // --- compute bounds of lasso ---
+  var minX = Infinity, minY = Infinity;
+  var maxX = -Infinity, maxY = -Infinity;
+
+  lassoPoints.forEach(function (p) {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
   });
 
-  minX = Math.max(0, Math.floor(minX));
-  minY = Math.max(0, Math.floor(minY));
-  maxX = Math.min(src.width, Math.ceil(maxX));
-  maxY = Math.min(src.height, Math.ceil(maxY));
-  var w = Math.max(1, maxX - minX);
-  var h = Math.max(1, maxY - minY);
+  minX = Math.floor(minX);
+  minY = Math.floor(minY);
+  maxX = Math.ceil(maxX);
+  maxY = Math.ceil(maxY);
 
-  var tmp = document.createElement('canvas');
-  tmp.width = src.width;
-  tmp.height = src.height;
-  var tctx = tmp.getContext('2d');
-  tctx.save();
-  tctx.beginPath();
-  tctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
-  for (var i = 1; i < lassoPoints.length; i++) {
-    var p = lassoPoints[i];
-    tctx.lineTo(p.x, p.y);
-  }
-  tctx.closePath();
-  tctx.clip();
-  tctx.drawImage(src, 0, 0);
-  tctx.restore();
+  var w = maxX - minX;
+  var h = maxY - minY;
+  if (w <= 0 || h <= 0) return;
 
+  // --- selection canvas ---
   var selCanvas = document.createElement('canvas');
   selCanvas.width = w;
   selCanvas.height = h;
-  selCanvas.getContext('2d').drawImage(tmp, minX, minY, w, h, 0, 0, w, h);
+  var selCtx = selCanvas.getContext('2d');
 
+  // copy pixels from source
+  selCtx.drawImage(srcCanvas, minX, minY, w, h, 0, 0, w, h);
+
+  // --- mask selection using lasso ---
+  selCtx.save();
+  selCtx.globalCompositeOperation = 'destination-in';
+  selCtx.beginPath();
+  selCtx.moveTo(lassoPoints[0].x - minX, lassoPoints[0].y - minY);
+  for (var i = 1; i < lassoPoints.length; i++) {
+    var p = lassoPoints[i];
+    selCtx.lineTo(p.x - minX, p.y - minY);
+  }
+  selCtx.closePath();
+  selCtx.fill();
+  selCtx.restore();
+
+  // --- remove pixels from source (cut) ---
   srcCtx.save();
+  srcCtx.globalCompositeOperation = 'destination-out';
   srcCtx.beginPath();
   srcCtx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
-  for (i = 1; i < lassoPoints.length; i++) {
-    p = lassoPoints[i];
-    srcCtx.lineTo(p.x, p.y);
+  for (var j = 1; j < lassoPoints.length; j++) {
+    var p2 = lassoPoints[j];
+    srcCtx.lineTo(p2.x, p2.y);
   }
   srcCtx.closePath();
-  srcCtx.globalCompositeOperation = 'destination-out';
   srcCtx.fill();
   srcCtx.restore();
 
+  // --- history: snapshot AFTER cut & push entry ---
+  var afterImg = captureCellImage(row, layer);
+  pushHistoryCellChange(row, layer, beforeImg, afterImg, 'Lasso Cut');
+
+  // --- store lasso path relative to selection center ---
+  var centerX = minX + w / 2;
+  var centerY = minY + h / 2;
+  var path = lassoPoints.map(function (pt) {
+    return {
+      x: pt.x - centerX,
+      y: pt.y - centerY
+    };
+  });
+
+  // --- activate selection object ---
   activeSelection = {
     canvas: selCanvas,
-    x: minX, y: minY,
-    width: w, height: h,
-    offsetX: 0, offsetY: 0,
-    scaleX: 1, scaleY: 1,
+    x: minX,
+    y: minY,
+    width: w,
+    height: h,
+    offsetX: 0,
+    offsetY: 0,
+    scaleX: 1,
+    scaleY: 1,
     angle: 0,
-    row: selectedRow,
-    layer: selectedLayer
+    row: row,
+    layer: layer,
+    path: path           // lasso outline for drawing
   };
 
+  // cleanup
   lassoPoints = [];
   isLassoDrawing = false;
-  redrawDisplay();
   toolMode = 'transform';
+
+  redrawDisplay();
 }
+function createSelectionFromFullLayer() {
+  if (selectedRow < 0 || selectedLayer < 0) return;
+
+  var row = selectedRow;
+  var layer = selectedLayer;
+
+  var cell = xsheet[row][layer];
+  if (!cell || !cell.drawing) return;
+
+  var srcCanvas = cell.drawing;
+  var srcCtx = srcCanvas.getContext('2d');
+
+  var w = srcCanvas.width;
+  var h = srcCanvas.height;
+  if (w <= 0 || h <= 0) return;
+
+  // --- history: BEFORE we cut the layer into a selection ---
+  var beforeImg = captureCellImage(row, layer);
+
+  // selection canvas
+  var selCanvas = document.createElement('canvas');
+  selCanvas.width = w;
+  selCanvas.height = h;
+  var selCtx = selCanvas.getContext('2d');
+
+  // copy the full layer into the selection
+  selCtx.drawImage(srcCanvas, 0, 0);
+
+  // clear the original layer (so we don't see double when we draw the selection)
+  srcCtx.clearRect(0, 0, w, h);
+
+  // --- history: AFTER the cut ---
+  var afterImg = captureCellImage(row, layer);
+  pushHistoryCellChange(row, layer, beforeImg, afterImg, 'Select Layer');
+
+  // activate selection object (no lasso path needed)
+  activeSelection = {
+    canvas: selCanvas,
+    x: 0,
+    y: 0,
+    offsetX: 0,
+    offsetY: 0,
+    width: w,
+    height: h,
+    row: row,
+    layer: layer,
+    scaleX: 1,
+    scaleY: 1,
+    angle: 0,
+    path: null
+  };
+
+  // Make sure we’re in transform mode
+  toolMode = 'transform';
+
+  redrawDisplay();
+}
+
 
 function commitActiveSelection() {
   if (!activeSelection) return;
+
   var sel = activeSelection;
-  if (sel.row < 0 || sel.row >= xsheet.length) {
+  var row = sel.row;
+  var layer = sel.layer;
+
+  if (row < 0 || row >= xsheet.length) {
     activeSelection = null;
+    redrawDisplay();
     return;
   }
-  var cell = xsheet[sel.row][sel.layer];
+  var cell = xsheet[row][layer];
   if (!cell) {
     activeSelection = null;
+    redrawDisplay();
     return;
   }
-  var canvas = ensureCellDrawing(sel.row, sel.layer, false);
+
+  // --- history: snapshot BEFORE transform ---
+  var beforeImg = captureCellImage(row, layer);
+
+  // ensure canvas exists
+  var canvas = ensureCellDrawing(row, layer, true);
   var ctx = canvas.getContext('2d');
+
   var cx = sel.x + sel.offsetX + sel.width / 2;
   var cy = sel.y + sel.offsetY + sel.height / 2;
 
@@ -287,9 +394,14 @@ function commitActiveSelection() {
   ctx.drawImage(sel.canvas, -sel.width / 2, -sel.height / 2);
   ctx.restore();
 
+  // --- history: snapshot AFTER transform & push entry ---
+  var afterImg = captureCellImage(row, layer);
+  pushHistoryCellChange(row, layer, beforeImg, afterImg, 'Transform');
+
   activeSelection = null;
   redrawDisplay();
 }
+
 
 function getSelectionHit(x, y) {
   if (!activeSelection) return { mode: null };
@@ -343,6 +455,7 @@ function drawActiveSelectionOverlay() {
   var cx = sel.x + sel.offsetX + sel.width / 2;
   var cy = sel.y + sel.offsetY + sel.height / 2;
 
+  // draw the selected pixels
   displayCtx.save();
   displayCtx.translate(cx, cy);
   displayCtx.rotate(sel.angle);
@@ -350,6 +463,7 @@ function drawActiveSelectionOverlay() {
   displayCtx.drawImage(sel.canvas, -sel.width / 2, -sel.height / 2);
   displayCtx.restore();
 
+  // draw overlay (lasso + transform box + handles)
   displayCtx.save();
   displayCtx.translate(cx, cy);
   displayCtx.rotate(sel.angle);
@@ -357,22 +471,44 @@ function drawActiveSelectionOverlay() {
 
   var w = sel.width, h = sel.height;
   var halfW = w / 2, halfH = h / 2;
-  displayCtx.strokeStyle = 'rgba(255,255,255,0.9)';
-  displayCtx.lineWidth = 1;
+
+  // --- 1) lasso outline (stored polygon) ---
+  if (sel.path && sel.path.length > 1) {
+    displayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+    displayCtx.lineWidth = 2;
+    displayCtx.setLineDash([8, 2]);    // dashed marching-ants style
+
+    displayCtx.beginPath();
+    var p0 = sel.path[0];
+    displayCtx.moveTo(p0.x, p0.y);
+    for (var i = 1; i < sel.path.length; i++) {
+      var p = sel.path[i];
+      displayCtx.lineTo(p.x, p.y);
+    }
+    displayCtx.closePath();
+    displayCtx.stroke();
+  }
+
+  // --- 2) transform box on top ---
+  displayCtx.setLineDash([]);          // solid for box
+  displayCtx.strokeStyle = 'rgba(0,0,0,0.5)';
+  displayCtx.lineWidth = 2;
   displayCtx.strokeRect(-halfW, -halfH, w, h);
 
+  // --- 3) resize handles ---
   var handle = 6;
   var corners = [
     { x: -halfW, y: -halfH },
-    { x: halfW, y: -halfH },
-    { x: halfW, y: halfH },
-    { x: -halfW, y: halfH }
+    { x:  halfW, y: -halfH },
+    { x:  halfW, y:  halfH },
+    { x: -halfW, y:  halfH }
   ];
   displayCtx.fillStyle = '#fbbf24';
   corners.forEach(function(p) {
     displayCtx.fillRect(p.x - handle / 2, p.y - handle / 2, handle, handle);
   });
 
+  // --- 4) rotation handle ---
   var rotY = -halfH - 20;
   displayCtx.beginPath();
   displayCtx.arc(0, rotY, 5, 0, Math.PI * 2);
@@ -382,12 +518,14 @@ function drawActiveSelectionOverlay() {
   displayCtx.restore();
 }
 
+
 function drawLassoPreview() {
   if (!isLassoDrawing || lassoPoints.length < 2) return;
   displayCtx.save();
-  displayCtx.strokeStyle = 'rgba(248,250,252,0.8)';
-  displayCtx.lineWidth = 1;
-  displayCtx.setLineDash([4, 4]);
+  displayCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+  displayCtx.lineWidth = 2;
+  displayCtx.setLineDash([8, 2]);
+  displayCtx.lineDashOffset = -performance.now() / 30;
   displayCtx.beginPath();
   var p0 = lassoPoints[0];
   displayCtx.moveTo(p0.x, p0.y);
@@ -428,17 +566,30 @@ function redrawDisplay() {
 }
 
 function clearSelectedCell() {
+  // First, bake any active selection back into the layer (and record its history).
   commitActiveSelection();
+
   if (selectedRow < 0 || selectedLayer < 0) return;
-  var cell = xsheet[selectedRow][selectedLayer];
-  if (cell.drawing) {
+  var row = selectedRow;
+  var layer = selectedLayer;
+
+  // History: BEFORE clear
+  var beforeImg = captureCellImage(row, layer);
+
+  var cell = xsheet[row][layer];
+  if (cell && cell.drawing) {
     var ctx = cell.drawing.getContext('2d');
     ctx.clearRect(0, 0, cell.drawing.width, cell.drawing.height);
+    cell.drawing = null;
   }
-  cell.drawing = null;
+
+  // AFTER clear → null image
+  pushHistoryCellChange(row, layer, beforeImg, null, 'Clear Cell');
+
   refreshXsheetUI();
   redrawDisplay();
 }
+
 
 function exportRowToPNG(rowIndex) {
   var off = document.createElement('canvas');
@@ -515,41 +666,50 @@ function onPointerDown(evt) {
     isLassoDrawing = true;
     lassoPoints = [pos];
     redrawDisplay();
-  } else if (toolMode === 'transform') {
-    if (!activeSelection || activeSelection.row !== selectedRow) return;
-    var hit = getSelectionHit(pos.x, pos.y);
-    if (!hit.mode) return;
-    isTransformDragging = true;
-    transformDragMode = hit.mode;
-    dragStartPointer = pos;
-    dragInitial = {
-      offsetX: activeSelection.offsetX,
-      offsetY: activeSelection.offsetY,
-      scaleX: activeSelection.scaleX,
-      scaleY: activeSelection.scaleY,
-      angle: activeSelection.angle,
-      startLocalDist: 0,
-      startAngle: 0
-    };
+} else if (toolMode === 'transform') {
+  // If there is no active selection for this row, create one for the whole layer
+  if (!activeSelection || activeSelection.row !== selectedRow) {
+    createSelectionFromFullLayer();
+  }
 
-    var sel = activeSelection;
-    var cx = sel.x + sel.offsetX + sel.width / 2;
-    var cy = sel.y + sel.offsetY + sel.height / 2;
-    var dx = pos.x - cx;
-    var dy = pos.y - cy;
-    var cosA = Math.cos(-sel.angle);
-    var sinA = Math.sin(-sel.angle);
-    var rx = dx * cosA - dy * sinA;
-    var ry = dx * sinA + dy * cosA;
-    rx /= sel.scaleX;
-    ry /= sel.scaleY;
+  // Still nothing? Then there's nothing to transform
+  if (!activeSelection || activeSelection.row !== selectedRow) return;
 
-    if (hit.mode === 'scale') {
-      dragInitial.startLocalDist = Math.sqrt(rx * rx + ry * ry) || 1;
-    } else if (hit.mode === 'rotate') {
-      dragInitial.startAngle = Math.atan2(ry, rx);
-    }
-  } else if (toolMode === 'zoom') {
+  var hit = getSelectionHit(pos.x, pos.y);
+  if (!hit.mode) return;
+
+  isTransformDragging = true;
+  transformDragMode = hit.mode;
+  dragStartPointer = pos;
+  dragInitial = {
+    offsetX: activeSelection.offsetX,
+    offsetY: activeSelection.offsetY,
+    scaleX: activeSelection.scaleX,
+    scaleY: activeSelection.scaleY,
+    angle: activeSelection.angle,
+    startLocalDist: 0,
+    startAngle: 0
+  };
+
+  var sel = activeSelection;
+  var cx = sel.x + sel.offsetX + sel.width / 2;
+  var cy = sel.y + sel.offsetY + sel.height / 2;
+  var dx = pos.x - cx;
+  var dy = pos.y - cy;
+  var cosA = Math.cos(-sel.angle);
+  var sinA = Math.sin(-sel.angle);
+  var rx = dx * cosA - dy * sinA;
+  var ry = dx * sinA + dy * cosA;
+  rx /= sel.scaleX;
+  ry /= sel.scaleY;
+
+  if (hit.mode === 'scale') {
+    dragInitial.startLocalDist = Math.sqrt(rx * rx + ry * ry);
+  } else if (hit.mode === 'rotate') {
+    dragInitial.startAngle = Math.atan2(ry, rx);
+  }
+}
+ else if (toolMode === 'zoom') {
     var factor = evt.shiftKey ? 1 / 1.25 : 1.25;
     zoomAt(pos.x, pos.y, factor);
   } else if (toolMode === 'pan') {
@@ -843,20 +1003,34 @@ function undoHistory() {
   var entry = historyStack[historyIndex];
   applyHistoryEntry(entry, -1);
   historyIndex--;
+
+  // Clear any active selection when history changes
+  activeSelection = null;
+  isTransformDragging = false;
+  isLassoDrawing = false;
+
   updateHistoryStrip();
   refreshXsheetUI();
   redrawDisplay();
 }
+
 
 function redoHistory() {
   if (!historyStack || historyIndex >= historyStack.length - 1) return;
   var entry = historyStack[historyIndex + 1];
   applyHistoryEntry(entry, +1);
   historyIndex++;
+
+  // Clear any active selection when history changes
+  activeSelection = null;
+  isTransformDragging = false;
+  isLassoDrawing = false;
+
   updateHistoryStrip();
   refreshXsheetUI();
   redrawDisplay();
 }
+
 
 function jumpToHistory(targetIndex) {
   if (!historyStack) return;
