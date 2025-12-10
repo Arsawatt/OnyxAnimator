@@ -268,28 +268,30 @@
       gap: 4px;
     }
 
-    #canvas-wrapper {
-      position: relative;
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: auto;
-      border-radius: 16px;
-      border: 2px solid #1f2937;
-      background: #111827;
-      min-height: 0;
-    }
-    canvas {
-      background:  transparent;
-      border-radius: 16px;
-      border: none;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-      touch-action: none;
-      transform-origin: 0 0;
-      max-width: none;
-      height: auto;
-    }
+#canvas-wrapper {
+  position: relative;
+  flex: 1;
+  /* No flex centering – JS pan handles positioning */
+  display: block;
+  overflow: hidden;           /* hide scrollbars, act as a viewport */
+  border-radius: 16px;
+  border: 2px solid #1f2937;
+  background: #111827;
+  min-height: 0;
+}
+
+
+canvas {
+  background: transparent;
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+  touch-action: none;
+  transform-origin: 0 0;   /* important */
+  max-width: none;
+  height: auto;
+  display: block;
+}
 	/* Default “white paper” background */
 #drawCanvas.default-bg {
   background: #ffffff;

@@ -390,20 +390,35 @@ function setToolMode(mode) {
 
 function fitDocumentToWindow() {
   var wrapper = document.getElementById('canvas-wrapper');
+  if (!wrapper || !displayCanvas) return;
+
   var w = wrapper.clientWidth;
   var h = wrapper.clientHeight;
   if (!w || !h) return;
 
-  var scale = Math.min(w / displayCanvas.width, h / displayCanvas.height);
+  // Scale so the *whole* document fits
+  var scaleX = w / displayCanvas.width;
+  var scaleY = h / displayCanvas.height;
+  var scale  = Math.min(scaleX, scaleY);
   scale = Math.max(0.1, Math.min(8, scale));
 
   zoomLevel = scale;
+
   var canvasPixelW = displayCanvas.width * zoomLevel;
   var canvasPixelH = displayCanvas.height * zoomLevel;
+
+  // Center the document inside the wrapper
   panX = (w - canvasPixelW) / 2;
   panY = (h - canvasPixelH) / 2;
+
+  // Make sure wrapper itself isn’t scrolled
+  wrapper.scrollLeft = 0;
+  wrapper.scrollTop  = 0;
+
   updateCanvasTransform();
 }
+
+
 
 // GLOBAL keyboard shortcuts – only added once
 document.addEventListener('keydown', function(e) {
