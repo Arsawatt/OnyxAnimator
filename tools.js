@@ -142,44 +142,59 @@ function stampLine(ctx, x0, y0, x1, y1, pressure) {
   var hardness = parseFloat(hardnessRange.value);
   var col = colorPicker.value;
   var erase = isEraser;
+
+  // clamp incoming pressure
   var raw = (pressure != null ? pressure : 1);
   var p = Math.max(0, Math.min(1, raw));
+
+  // size follows pressure as before
   var sizePressure = 0.25 + 0.75 * p;
   var size = baseSize * sizePressure;
   var localOpacity = brushOpacity * (usePressureOpacity ? p : 1);
   var localFlow = brushFlow * (usePressureFlow ? p : 1);
-  
+
   var dx = x1 - x0;
   var dy = y1 - y0;
   var dist = Math.sqrt(dx * dx + dy * dy);
-  
   if (dist === 0) return;
-  
-  var spacing = Math.max(0.1, baseSize * spacingFactor);
-  
-  // If this is the first stamp of the stroke
+
+  // --- NEW: spacing reacts to simulated pressure ---
+  var spacingScale = 1;
+  if (simulatePressure && pressure != null) {
+    // map from our 0.2..1.0 ramp (~mouse fake) back to 0..1
+    var p01 = (p - 0.2) / 0.8;
+    p01 = Math.max(0, Math.min(1, p01));
+    // at the very start: ~35% of normal spacing (denser stamps)
+    // at full pressure: 100% spacing
+    spacingScale = 0.15 + 0.65 * p01;
+  }
+
+  var spacing = Math.max(0.1, baseSize * spacingFactor * spacingScale);
+
+  // first stamp in stroke
   if (lastStampX === null) {
     stampBrush(ctx, x0, y0, size, col, hardness, erase, localOpacity, localFlow);
     lastStampX = x0;
     lastStampY = y0;
     accumulatedDistance = 0;
   }
-  
+
   accumulatedDistance += dist;
-  
-  // Place stamps at regular intervals
+
+  // place stamps at regular intervals along the segment
   while (accumulatedDistance >= spacing) {
     var ratio = (accumulatedDistance - spacing) / dist;
     var tx = x1 - dx * ratio;
     var ty = y1 - dy * ratio;
-    
+
     stampBrush(ctx, tx, ty, size, col, hardness, erase, localOpacity, localFlow);
-    
+
     lastStampX = tx;
     lastStampY = ty;
     accumulatedDistance -= spacing;
   }
 }
+
 
 // Reset these when starting a new stroke (in your mousedown/pointerdown handler)
 function startNewStroke() {
@@ -758,11 +773,14 @@ function onPointerMove(evt) {
       // Ramp distance: how far before we hit full pressure (in pixels)
       var baseSize = parseFloat(brushSizeInput.value) || 10;
       baseSize = Math.max(1, baseSize);
-      var rampDist = baseSize * 2.5; // tweakable
+      var rampDist = Math.max(60, baseSize * 12);
 
-      var t = Math.max(0, Math.min(1, totalStrokeDistance / rampDist));
-      // Ease-out curve from ~0.2 to 1.0
-      pressure = 0.2 + 0.8 * t;
+var t = Math.max(0, Math.min(1, totalStrokeDistance / rampDist));
+
+// smoothstep curve
+t = t * t * (3 - 2 * t);
+
+pressure = 0.2 + 0.8 * t;
     }
   } else {
     // Normal mouse behavior: constant full pressure

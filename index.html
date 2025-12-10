@@ -64,6 +64,18 @@
 
     label { font-size: 0.8rem; opacity: 0.9; }
     input[type="range"] { width: 110px; }
+    .slider-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-right: 4px;
+    }
+    .slider-caption {
+      font-size: 0.75rem;
+      text-align: center;
+      margin-bottom: 2px;
+      white-space: nowrap;
+    }
     input[type="number"] {
       width: 60px;
       padding: 2px 6px;
@@ -517,53 +529,52 @@
       <div class="group">
 
 <span class="info-text">Brush</span>
-        <label>
-	  Size:
-          <span id="brushSizeValue" class="slider-value"></span>
-          <input type="range" id="brushSize" min="0.1" max="255" step="0.1" value="8"> 
+        <label class="slider-block">
+          <span class="slider-caption">Size: <span id="brushSizeValue" class="slider-value"></span></span>
+          <input type="range" id="brushSize" min="0.1" max="255" step="0.1" value="8">
         </label>
-        <label>Hard:
-	  <span id="hardnessValue" class="slider-value"></span>
-          <input type="range" id="hardnessRange" min="0" max="1" step="0.05" value="1"> 
+        <label class="slider-block">
+          <span class="slider-caption">Hard: <span id="hardnessValue" class="slider-value"></span></span>
+          <input type="range" id="hardnessRange" min="0" max="1" step="0.05" value="1">
         </label>
-<label>Spacing:
-  <input type="range"
-         id="spacingRange"
-         min="0.10"
-         max="500.00"
-         step="0.05"
-         value="0.15">
-  <span id="spacingValue" class="slider-value"></span>
-</label>
+        <label class="slider-block">
+          <span class="slider-caption">Spacing: <span id="spacingValue" class="slider-value"></span></span>
+          <input type="range"
+                 id="spacingRange"
+                 min="0.10"
+                 max="500.00"
+                 step="0.05"
+                 value="0.15">
+        </label>
         <label class="checkbox-label">
           <input type="checkbox" id="pressureOpacityChk">
           P→
         </label>
-        <label>Opacity:
-          <input type="range" id="opacityRange" min="0.05" max="1" step="0.05" value="1"> <span id="opacityValue" class="slider-value"></span>
+        <label class="slider-block">
+          <span class="slider-caption">Opacity: <span id="opacityValue" class="slider-value"></span></span>
+          <input type="range" id="opacityRange" min="0.05" max="1" step="0.05" value="1">
         </label>
         <label class="checkbox-label">
           <input type="checkbox" id="pressureFlowChk">
           P→
         </label>
-        <label>Flow:
-          <input type="range" id="flowRange" min="0.05" max="1" step="0.05" value="1"> <span id="flowValue" class="slider-value"></span>
+        <label class="slider-block">
+          <span class="slider-caption">Flow: <span id="flowValue" class="slider-value"></span></span>
+          <input type="range" id="flowRange" min="0.05" max="1" step="0.05" value="1">
         </label>
-		<label class="checkbox-label">
-		<input type="checkbox" id="lazyMouseChk">
-		Lazy mouse
-		</label>
-
-		<!-- NEW: simulate pressure checkbox -->
-		<label class="checkbox-label">
-		<input type="checkbox" id="simulatePressureChk">
-		Sim pressure
-		</label>
-
-		<label>
-		<input type="range" id="lazyStrengthRange" min="0" max="1" step="0.01" value="0.5">
-		<span id="lazyStrengthValue">0.50</span>
-		</label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="lazyMouseChk">
+          Lazy mouse
+        </label>
+        <!-- NEW: simulate pressure checkbox -->
+        <label class="checkbox-label">
+          <input type="checkbox" id="simulatePressureChk">
+          Sim pressure
+        </label>
+        <label class="slider-block">
+          <span class="slider-caption">Lazy strength: <span id="lazyStrengthValue">0.50</span></span>
+          <input type="range" id="lazyStrengthRange" min="0" max="1" step="0.01" value="0.5">
+        </label>
 
       </div>
       <div class="group">
