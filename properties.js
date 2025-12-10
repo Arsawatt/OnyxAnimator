@@ -44,6 +44,14 @@ var hasStrokeStarted = false;
 var simulatePressure = false;       // controlled from UI
 var totalStrokeDistance = 0;        // distance travelled in current stroke (for fake pressure ramp)
 
+// End-of-stroke fade control (0..1, from slider)
+var simulatePressureEnd = 0.0;      // 0 = shrink immediately, 1 = longer body before shrink
+var simPressureEndRange = null;
+var simPressureEndValueLabel = null;
+
+// NEW: mark when the simulated pressure stroke has fully faded-out
+var simPressureStrokeDone = false;
+
 var defaultHold = 1;
 
 var isLassoDrawing = false, lassoPoints = [];

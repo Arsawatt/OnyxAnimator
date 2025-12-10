@@ -135,7 +135,7 @@ var accumulatedDistance = 0;
 var lastStampX = null;
 var lastStampY = null;
 
-function stampLine(ctx, x0, y0, x1, y1, pressure) {
+function stampLine(ctx, x0, y0, x1, y1, pressure, prevPressure) {
   var baseSize = parseFloat(brushSizeInput.value) || 1;
   baseSize = Math.max(0.1, baseSize);
   if (brushType === 'pencil') baseSize *= 0.6;
@@ -143,37 +143,44 @@ function stampLine(ctx, x0, y0, x1, y1, pressure) {
   var col = colorPicker.value;
   var erase = isEraser;
 
-  // clamp incoming pressure
-  var raw = (pressure != null ? pressure : 1);
-  var p = Math.max(0, Math.min(1, raw));
+  // clamp incoming pressures
+  var rawCurr = (pressure != null ? pressure : 1);
+  var pCurr = Math.max(0, Math.min(1, rawCurr));
 
-  // size follows pressure as before
-  var sizePressure = 0.25 + 0.75 * p;
-  var size = baseSize * sizePressure;
-  var localOpacity = brushOpacity * (usePressureOpacity ? p : 1);
-  var localFlow = brushFlow * (usePressureFlow ? p : 1);
+  var rawPrev = (prevPressure != null ? prevPressure : rawCurr);
+  var pPrev = Math.max(0, Math.min(1, rawPrev));
 
-  var dx = x1 - x0;
-  var dy = y1 - y0;
-  var dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist === 0) return;
+  // Average pressure for spacing (we'll still vary size/opacity per dot)
+  var pForSpacing = 0.5 * (pPrev + pCurr);
 
-  // --- NEW: spacing reacts to simulated pressure ---
+  // --- spacing reacts to simulated pressure ---
   var spacingScale = 1;
   if (simulatePressure && pressure != null) {
     // map from our 0.2..1.0 ramp (~mouse fake) back to 0..1
-    var p01 = (p - 0.2) / 0.8;
+    var p01 = (pForSpacing - 0.2) / 0.8;
     p01 = Math.max(0, Math.min(1, p01));
-    // at the very start: ~35% of normal spacing (denser stamps)
+    // at the very start: ~15% of normal spacing (denser stamps)
     // at full pressure: 100% spacing
     spacingScale = 0.15 + 0.65 * p01;
   }
 
   var spacing = Math.max(0.1, baseSize * spacingFactor * spacingScale);
 
+  var dx = x1 - x0;
+  var dy = y1 - y0;
+  var dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return;
+
   // first stamp in stroke
   if (lastStampX === null) {
-    stampBrush(ctx, x0, y0, size, col, hardness, erase, localOpacity, localFlow);
+    // seed with the previous pressure (or current if none)
+    var pSeed = pPrev;
+    var sizePressureSeed = 0.25 + 0.75 * pSeed;
+    var sizeSeed = baseSize * sizePressureSeed;
+    var localOpacitySeed = brushOpacity * (usePressureOpacity ? pSeed : 1);
+    var localFlowSeed = brushFlow * (usePressureFlow ? pSeed : 1);
+
+    stampBrush(ctx, x0, y0, sizeSeed, col, hardness, erase, localOpacitySeed, localFlowSeed);
     lastStampX = x0;
     lastStampY = y0;
     accumulatedDistance = 0;
@@ -183,9 +190,22 @@ function stampLine(ctx, x0, y0, x1, y1, pressure) {
 
   // place stamps at regular intervals along the segment
   while (accumulatedDistance >= spacing) {
-    var ratio = (accumulatedDistance - spacing) / dist;
+    var ratio = (accumulatedDistance - spacing) / dist; // 0..1
     var tx = x1 - dx * ratio;
     var ty = y1 - dy * ratio;
+
+    // ratio is 0 near the end (x1,y1) and 1 near the start (x0,y0)
+    // We want t = 0 at start, 1 at end, so:
+    var tSeg = 1 - ratio;
+
+    // interpolate pressure along the segment
+    var pStamp = pPrev + (pCurr - pPrev) * tSeg;
+    pStamp = Math.max(0, Math.min(1, pStamp));
+
+    var sizePressure = 0.25 + 0.75 * pStamp;
+    var size = baseSize * sizePressure;
+    var localOpacity = brushOpacity * (usePressureOpacity ? pStamp : 1);
+    var localFlow = brushFlow * (usePressureFlow ? pStamp : 1);
 
     stampBrush(ctx, tx, ty, size, col, hardness, erase, localOpacity, localFlow);
 
@@ -194,6 +214,7 @@ function stampLine(ctx, x0, y0, x1, y1, pressure) {
     accumulatedDistance -= spacing;
   }
 }
+
 
 
 // Reset these when starting a new stroke (in your mousedown/pointerdown handler)
@@ -648,6 +669,9 @@ function onPointerDown(evt) {
 	//new line
 	hasLazyPos = false;
     hasStrokeStarted = false;
+	
+	totalStrokeDistance = 0;
+	simPressureStrokeDone = false;
 
 	// NEW: reset simulated pressure distance
 	totalStrokeDistance = 0;
@@ -755,16 +779,18 @@ function onPointerMove(evt) {
     var isPen = (evt.pointerType === 'pen');
     var pressure;
 
-    if (!isPen || rawPressure == null) {
+if (!isPen || rawPressure == null) {
   // --- Mouse or non-pen input ---
   if (simulatePressure) {
-    // Fake a pressure ramp based on stroke distance.
-    // 1) On very first move (before stroke started) just seed a low pressure
+    // Fake a pressure curve based on stroke distance:
+    //  - ramp-in at the start (code-controlled)
+    //  - hold at full
+    //  - fade-out at the end (slider-controlled)
     if (!hasStrokeStarted) {
       pressure = 0.2;
       totalStrokeDistance = 0;
     } else {
-      // 2) Accumulate distance from last point
+      // Accumulate distance from last point
       var dxp = pos.x - lastX;
       var dyp = pos.y - lastY;
       var stepDist = Math.sqrt(dxp * dxp + dyp * dyp) || 0;
@@ -775,26 +801,80 @@ function onPointerMove(evt) {
       baseSize = Math.max(1, baseSize);
       var rampDist = Math.max(60, baseSize * 12);
 
-var t = Math.max(0, Math.min(1, totalStrokeDistance / rampDist));
+      // Distance normalized by ramp length
+      var u = totalStrokeDistance / rampDist; // 0..∞
 
-// smoothstep curve
-t = t * t * (3 - 2 * t);
+      // Where to start shrinking:
+      //   simulatePressureEnd (0..1) comes from the UI.
+      //   0 -> start shrinking right after u=1
+      //   1 -> start shrinking later (around u=2)
+      var endStartNorm = (typeof simulatePressureEnd === 'number')
+        ? simulatePressureEnd
+        : 0.0;
 
-pressure = 0.2 + 0.8 * t;
-    }
-  } else {
+      // If end fade is 0, we interpret it as "no end fade" (hold full pressure)
+      if (endStartNorm <= 0) {
+        function smoothstep(t) {
+          t = Math.max(0, Math.min(1, t));
+          return t * t * (3 - 2 * t);
+        }
+
+        if (u <= 1.0) {
+          // ramp up from 0.2 -> 1.0
+          var tIn = smoothstep(u);
+          pressure = 0.2 + 0.8 * tIn;
+        } else {
+          // no shrink: keep full pressure for the entire stroke
+          pressure = 1.0;
+        }
+      } else {
+        var endStartU = 1 + endStartNorm; // between 1..2
+        var fadeSpan = 0.75;              // how long the tail is, in ramp units
+
+        function smoothstep(t) {
+          t = Math.max(0, Math.min(1, t));
+          return t * t * (3 - 2 * t);
+        }
+
+        if (u <= 1.0) {
+          // --- Ramp-in (start of stroke) ---
+          var tIn2 = smoothstep(u);
+          pressure = 0.2 + 0.8 * tIn2;
+        } else if (u <= endStartU) {
+          // --- Body: hold full pressure ---
+          pressure = 1.0;
+        } else {
+          // --- Tail: fade back down towards 0.2 ---
+          var v = (u - endStartU) / fadeSpan; // 0..1, then >1
+
+          // Once tail fully finished, kill this stroke visually.
+          if (v >= 1) {
+            simPressureStrokeDone = true;
+            return; // do not draw anymore for this stroke
+          }
+
+          var tOut = smoothstep(v);
+          var tail = 1 - tOut; // 1 -> 0
+          pressure = 0.2 + 0.8 * tail;
+        }
+      }
+  }} else {
     // Normal mouse behavior: constant full pressure
     pressure = 1;
   }
-    } else {
-      // Pen input
-      if (hasStrokeStarted && rawPressure <= PRESSURE_THRESHOLD) {
-        // Stylus is lifting off: don't stamp a last "blob"
-        // with pressure = 1, just end the stroke visually.
-        return;
-      }
-      // Use the raw pen pressure (0..1)
-      pressure = rawPressure;
+} else {
+  // Pen input (unchanged)
+  if (hasStrokeStarted && rawPressure <= PRESSURE_THRESHOLD) {
+    // Stylus is lifting off: don't stamp a last "blob"
+    // with pressure = 1, just end the stroke visually.
+    return;
+  }
+  // Use the raw pen pressure (0..1)
+  pressure = rawPressure;
+}
+    // If the simulated stroke already finished its tail, don't draw more
+    if (simulatePressure && simPressureStrokeDone) {
+      return;
     }
 
     var c = ensureCellDrawing(selectedRow, selectedLayer, true);
@@ -816,18 +896,19 @@ pressure = 0.2 + 0.8 * t;
       return;
     }
 
-    if (!lazyEnabled || !hasLazyPos) {
-      stampLine(ctx, lastX, lastY, pos.x, pos.y, pressure);
-      lastX = pos.x;
-      lastY = pos.y;
-    } else {
-      var a = Math.max(0.05, 1 - lazyStrength);
-      lazyX += (pos.x - lazyX) * a;
-      lazyY += (pos.y - lazyY) * a;
-      stampLine(ctx, lastX, lastY, lazyX, lazyY, pressure);
-      lastX = lazyX;
-      lastY = lazyY;
-    }
+if (!lazyEnabled || !hasLazyPos) {
+  stampLine(ctx, lastX, lastY, pos.x, pos.y, pressure, lastPressure);
+  lastX = pos.x;
+  lastY = pos.y;
+} else {
+  var a = Math.max(0.05, 1 - lazyStrength);
+  lazyX += (pos.x - lazyX) * a;
+  lazyY += (pos.y - lazyY) * a;
+  stampLine(ctx, lastX, lastY, lazyX, lazyY, pressure, lastPressure);
+  lastX = lazyX;
+  lastY = lazyY;
+}
+
 
     lastPressure = pressure;
     refreshXsheetUI();
@@ -900,6 +981,12 @@ function onPointerUp(evt) {
     isDrawing = false;
     hasLazyPos = false;
     hasStrokeStarted = false;
+	
+  // NEW: reset simulated pressure distance at end of stroke
+  totalStrokeDistance = 0;
+
+  // NEW: clear end-of-stroke flag
+  simPressureStrokeDone = false;
 
 	// NEW: reset simulated pressure distance at end of stroke
 	totalStrokeDistance = 0;

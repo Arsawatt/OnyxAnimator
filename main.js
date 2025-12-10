@@ -98,6 +98,20 @@ window.addEventListener('DOMContentLoaded', function() {
   pressureOpacityChk = document.getElementById('pressureOpacityChk');
   pressureFlowChk = document.getElementById('pressureFlowChk');
   simulatePressureChk = document.getElementById('simulatePressureChk'); // NEW
+// NEW: end-fade slider for simulated pressure
+simPressureEndRange = document.getElementById('simPressureEndRange');
+simPressureEndValueLabel = document.getElementById('simPressureEndValue');
+
+if (simPressureEndRange && simPressureEndValueLabel) {
+  simulatePressureEnd = parseFloat(simPressureEndRange.value) || 0.0;
+  simPressureEndValueLabel.textContent = simulatePressureEnd.toFixed(2);
+
+  simPressureEndRange.addEventListener('input', function() {
+    simulatePressureEnd = parseFloat(simPressureEndRange.value) || 0.0;
+    simPressureEndValueLabel.textContent = simulatePressureEnd.toFixed(2);
+  });
+}
+
   fitBtn = document.getElementById('fitBtn');
   fitBottomBtn = document.getElementById('fitBottomBtn');
   inputModeBtn = document.getElementById('inputModeBtn');
@@ -219,9 +233,16 @@ window.addEventListener('DOMContentLoaded', function() {
     usePressureFlow = pressureFlowChk.checked;
   });
     // NEW: simulate pressure checkbox
-  simulatePressureChk.addEventListener('change', function() {
-    simulatePressure = simulatePressureChk.checked;
-  });
+simulatePressureChk.addEventListener('change', function() {
+  simulatePressure = simulatePressureChk.checked;
+
+  // Show / hide the end-fade slider
+  var block = document.getElementById('simPressureEndBlock');
+  if (block) {
+    block.style.display = simulatePressure ? 'flex' : 'none';
+  }
+});
+
 
 //clear button
   clearCellBtn.addEventListener('click', clearSelectedCell);
