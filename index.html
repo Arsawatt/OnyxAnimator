@@ -190,7 +190,15 @@
       justify-content: center;
       padding: 4px 0;
       font-size: 0.75rem;
+	  background:#b9c0c8;
     }
+	.tool-button img {
+	display: block;
+	width: 48px;            /* or 64px if you want full size */
+	height: 48px;
+	image-rendering: crisp-edges;
+	pointer-events: none;   /* so clicking anywhere hits the button, not the img */
+	}
     .tool-button.active {
       background: #0369a1;
       color: #e5e7eb;
@@ -273,7 +281,7 @@
       min-height: 0;
     }
     canvas {
-      background: #ffffff;
+      background:  transparent;
       border-radius: 16px;
       border: none;
       box-shadow: 0 10px 25px rgba(0,0,0,0.6);
@@ -282,6 +290,21 @@
       max-width: none;
       height: auto;
     }
+	/* Default “white paper” background */
+#drawCanvas.default-bg {
+  background: #ffffff;
+}
+#drawCanvas.checkerboard-bg {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, #999 25%, transparent 25%),
+    linear-gradient(-45deg, #999 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #999 75%),
+    linear-gradient(-45deg, transparent 75%, #999 75%);
+  background-size: 16px 16px;
+}
+
+
     .fit-btn {
       position: absolute;
       top: 8px;
@@ -518,6 +541,25 @@
     .cell-context-menu button:hover {
       background: #1f2937;
     }
+	#checkerBG {
+  position: absolute;
+  inset: 0;
+  background-color: #777;
+  background-image:
+    linear-gradient(45deg, #999 25%, transparent 25%),
+    linear-gradient(-45deg, #999 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #999 75%),
+    linear-gradient(-45deg, transparent 75%, #999 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  display: none;
+  z-index: 0;
+}
+
+#toggleGridBtn.active {
+  background: #3d4250;
+  border-color: #6f8cff;
+}
 
   </style>
 </head>
@@ -603,13 +645,23 @@
       <div class="side-left">
         <div class="tools-panel">
           <div class="panel-title">Tools</div>
-          <div class="tool-grid" id="toolGrid">
-            <button class="tool-button active" data-tool="brush">Brush</button>
-            <button class="tool-button" data-tool="lasso">Lasso</button>
-            <button class="tool-button" data-tool="transform">Transform</button>
-            <button class="tool-button" data-tool="zoom">Zoom</button>
-            <button class="tool-button" data-tool="pan">Pan</button>
-          </div>
+<div class="tool-grid" id="toolGrid">
+  <button class="tool-button active" data-tool="brush">
+    <img src="Icons/Brush.png" alt="Brush">
+  </button>
+  <button class="tool-button" data-tool="lasso">
+    <img src="Icons/Lasso.png" alt="Lasso">
+  </button>
+  <button class="tool-button" data-tool="transform">
+    <img src="Icons/Transform.png" alt="Transform">
+  </button>
+  <button class="tool-button" data-tool="zoom">
+    <img src="Icons/Zoom.png" alt="Zoom">
+  </button>
+  <button class="tool-button" data-tool="pan">
+    <img src="Icons/Pan.png" alt="Pan">
+  </button>
+</div>
           <button id="clearCellBtn" class="small">✕ Clear cell</button>
           <span class="info-text">
             Zoom: click (Shift = out). Pan: drag.
@@ -657,10 +709,11 @@
       </div>
 
       <div class="center-pane">
-        <div id="canvas-wrapper">
-          <button id="fitBtn" class="small fit-btn">Fit</button>
-          <canvas id="drawCanvas" width="1280" height="720"></canvas>
-        </div>
+<div id="canvas-wrapper">
+  <button id="fitBtn" class="small fit-btn">Fit</button>
+
+  <canvas id="drawCanvas" class="default-bg" width="1280" height="720"></canvas>
+</div>
       </div>
 
       <div class="side-right">
@@ -736,6 +789,7 @@
         </label>
         <button id="applyDocSizeBtn" class="small">Apply size</button>
         <button id="fitBottomBtn" class="small">Fit</button>
+		<button id="toggleGridBtn" class="tool-button" title="Toggle Transparency Grid">▦</button>
       </div>
       <div class="group">
         <span class="info-text">History:</span>

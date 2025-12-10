@@ -111,6 +111,28 @@ if (simPressureEndRange && simPressureEndValueLabel) {
     simPressureEndValueLabel.textContent = simulatePressureEnd.toFixed(2);
   });
 }
+// Checkerboard background toggle – two canvas states: white vs checkerboard
+const drawCanvasEl = document.getElementById("drawCanvas");
+const toggleGridBtn = document.getElementById("toggleGridBtn");
+
+let showCheckerboard = false;
+
+toggleGridBtn.addEventListener("click", () => {
+  showCheckerboard = !showCheckerboard;
+
+  // Toggle classes on the canvas itself
+  if (showCheckerboard) {
+    drawCanvasEl.classList.remove("default-bg");
+    drawCanvasEl.classList.add("checkerboard-bg");
+  } else {
+    drawCanvasEl.classList.remove("checkerboard-bg");
+    drawCanvasEl.classList.add("default-bg");
+  }
+
+  // Button visual state
+  toggleGridBtn.classList.toggle("active", showCheckerboard);
+});
+
 
   fitBtn = document.getElementById('fitBtn');
   fitBottomBtn = document.getElementById('fitBottomBtn');

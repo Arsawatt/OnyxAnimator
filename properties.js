@@ -183,6 +183,26 @@ function zoomAt(imageX, imageY, factor) {
   zoomLevel = newZ;
   updateCanvasTransform();
 }
+function updateCanvasBackground() {
+  if (!displayCanvas) return;
+
+  if (showCheckerboard) {
+    // Checkerboard on top of white
+    displayCanvas.style.backgroundColor = '#ffffff';   //  was 'transparent'
+    displayCanvas.style.backgroundImage =
+      'linear-gradient(45deg, #d1d5db 25%, transparent 25%, transparent 75%, #d1d5db 75%, #d1d5db),' +
+      'linear-gradient(45deg, #f3f4f6 25%, transparent 25%, transparent 75%, #f3f4f6 75%, #f3f4f6)';
+    displayCanvas.style.backgroundSize = '32px 32px';
+    displayCanvas.style.backgroundPosition = '0 0, 8px 8px';
+  } else {
+    // Plain white "paper"
+    displayCanvas.style.backgroundImage = 'none';
+    displayCanvas.style.backgroundSize = '';
+    displayCanvas.style.backgroundPosition = '';
+    displayCanvas.style.backgroundColor = '#ffffff';
+  }
+}
+
 
 // Prefer pen input: ignore mouse events once a pen stroke has been seen (unless in mouse mode)
 function shouldIgnorePointer(evt) {
