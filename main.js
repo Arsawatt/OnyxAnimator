@@ -110,6 +110,7 @@ if (simPressureEndRange && simPressureEndValueLabel) {
     simulatePressureEnd = parseFloat(simPressureEndRange.value) || 0.0;
     simPressureEndValueLabel.textContent = simulatePressureEnd.toFixed(2);
   });
+
 }
 // Checkerboard background toggle – two canvas states: white vs checkerboard
 const drawCanvasEl = document.getElementById("drawCanvas");
@@ -361,6 +362,10 @@ if (typeof refreshColorPickers === 'function') {
   docHeightInput.value = displayCanvas.height;
 
   initXsheet(16, 1);
+
+  requestAnimationFrame(() => {
+    fitDocumentToWindow();
+  });
 });
 
 function setToolMode(mode) {
