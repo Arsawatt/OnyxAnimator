@@ -101,7 +101,7 @@ window.addEventListener('DOMContentLoaded', function() {
 // NEW: end-fade slider for simulated pressure
 simPressureEndRange = document.getElementById('simPressureEndRange');
 simPressureEndValueLabel = document.getElementById('simPressureEndValue');
-
+/*
 if (simPressureEndRange && simPressureEndValueLabel) {
   simulatePressureEnd = parseFloat(simPressureEndRange.value) || 0.0;
   simPressureEndValueLabel.textContent = simulatePressureEnd.toFixed(2);
@@ -111,7 +111,7 @@ if (simPressureEndRange && simPressureEndValueLabel) {
     simPressureEndValueLabel.textContent = simulatePressureEnd.toFixed(2);
   });
 
-}
+}*/
 // Checkerboard background toggle – two canvas states: white vs checkerboard
 const drawCanvasEl = document.getElementById("drawCanvas");
 const toggleGridBtn = document.getElementById("toggleGridBtn");

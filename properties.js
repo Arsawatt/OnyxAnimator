@@ -43,6 +43,11 @@ var hasStrokeStarted = false;
 // Simulated pressure for non-pen input
 var simulatePressure = false;       // controlled from UI
 var totalStrokeDistance = 0;        // distance travelled in current stroke (for fake pressure ramp)
+// Velocity tracking for velocity-based stroke tail
+var lastSampleX = 0, lastSampleY = 0;
+var lastSampleTime = 0;
+var lastVelX = 0, lastVelY = 0;
+
 
 // End-of-stroke fade control (0..1, from slider)
 var simulatePressureEnd = 0.0;      // 0 = shrink immediately, 1 = longer body before shrink

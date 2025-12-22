@@ -586,8 +586,8 @@ canvas {
           <input type="range"
                  id="spacingRange"
                  min="0.10"
-                 max="500.00"
-                 step="0.05"
+                 max="5.00"
+                 step="0.01"
                  value="0.15">
         </label>
         <label class="checkbox-label">
@@ -610,6 +610,10 @@ canvas {
           <input type="checkbox" id="lazyMouseChk">
           Lazy mouse
         </label>
+		<label class="slider-block">
+  <span class="slider-caption">Lazy strength: <span id="lazyStrengthValue">0.50</span></span>
+  <input type="range" id="lazyStrengthRange" min="0" max="1" step="0.01" value="0.5">
+</label>
         <!-- NEW: simulate pressure checkbox -->
 <label class="checkbox-label">
   <input type="checkbox" id="simulatePressureChk">
@@ -617,19 +621,16 @@ canvas {
 </label>
 
 <!-- NEW: end fade control, shown only when Sim pressure is on -->
-<label class="slider-block" id="simPressureEndBlock" style="display:none;">
+<!--<label class="slider-block" id="simPressureEndBlock" style="display:none;">
   <span class="slider-caption">
     End fade: <span id="simPressureEndValue" class="slider-value"></span>
   </span>
   <!-- 0 = start shrinking immediately after hitting full pressure,
        1 = keep a long body before shrinking -->
-  <input type="range" id="simPressureEndRange" min="0" max="10" step="0.05" value="0.0">
-</label>
+  <!--<input type="range" id="simPressureEndRange" min="0" max="0.25" step="0.05" value="0.0">
+</label>-->
 
-<label class="slider-block">
-  <span class="slider-caption">Lazy strength: <span id="lazyStrengthValue">0.50</span></span>
-  <input type="range" id="lazyStrengthRange" min="0" max="1" step="0.01" value="0.5">
-</label>
+
 
 
       </div>
