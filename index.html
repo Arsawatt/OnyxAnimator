@@ -812,7 +812,12 @@ canvas {
     <button data-action="copy">Copy selection</button>
     <button data-action="paste">Paste selection</button>
     <button data-action="duplicate">Duplicate down (cell)</button>
+    <hr style="border:none;border-top:1px solid #111827;margin:6px 4px;opacity:0.9;">
+    <button data-action="importImage">Import image…</button>
   </div>
+
+  <!-- hidden file input used by X-sheet “Import image…” -->
+  <input type="file" id="importImageInput" accept="image/*" style="display:none;">
 
   <script src="properties.js"></script>
   <script src="colorwheel.js"></script>

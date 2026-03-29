@@ -435,6 +435,71 @@ function commitActiveSelection() {
 	activeSelection = null;
 	redrawDisplay();
 }
+
+// -----------------------------------------------------------------------------
+// IMPORT IMAGE → ACTIVE SELECTION
+// -----------------------------------------------------------------------------
+// Called by xsheet.js when the user right-clicks a cell → Import image…
+// Creates an activeSelection so the user can immediately move/scale/rotate it
+// and then commit by switching tools (or any operation that triggers commit).
+function importImageIntoCellAsSelection(row, layer, img) {
+	if (!img) return;
+	if (row == null || layer == null) return;
+	if (row < 0 || layer < 0) return;
+	if (!displayCanvas) return;
+
+	// Bake any current selection to avoid losing it.
+	commitActiveSelection();
+
+	// Build a canvas containing the imported bitmap (kept at native resolution).
+	var selCanvas = document.createElement('canvas');
+	selCanvas.width = Math.max(1, img.naturalWidth || img.width || 1);
+	selCanvas.height = Math.max(1, img.naturalHeight || img.height || 1);
+	var selCtx = selCanvas.getContext('2d');
+	// Draw with full quality (no smoothing control here; leave it default)
+	selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+	selCtx.drawImage(img, 0, 0);
+
+	var docW = displayCanvas.width;
+	var docH = displayCanvas.height;
+	var iw = selCanvas.width;
+	var ih = selCanvas.height;
+
+	// If the image is larger than the document, start scaled to fit.
+	var fit = Math.min(docW / iw, docH / ih);
+	if (!isFinite(fit) || fit <= 0) fit = 1;
+	fit = Math.min(1, fit);
+
+	var placedW = iw * fit;
+	var placedH = ih * fit;
+
+	// Center it in the document.
+	var startX = (docW - placedW) / 2;
+	var startY = (docH - placedH) / 2;
+
+	activeSelection = {
+		canvas: selCanvas,
+		x: startX,
+		y: startY,
+		offsetX: 0,
+		offsetY: 0,
+		width: iw,
+		height: ih,
+		row: row,
+		layer: layer,
+		scaleX: fit,
+		scaleY: fit,
+		angle: 0,
+		path: null
+	};
+
+	// Ensure selection matches the imported-to cell.
+	selectedRow = row;
+	selectedLayer = layer;
+
+	toolMode = 'transform';
+	redrawDisplay();
+}
 function getSelectionHit(x, y) {
 	if (!activeSelection) return { mode: null };
 

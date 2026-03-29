@@ -929,10 +929,87 @@ function pasteSelectionOrCell() {
 // --- Cell context menu ------------------------------------------------------
 
 var cellContextMenu = null;
+var importImageInput = null;
+var importTargetRow = -1;
+var importTargetLayer = -1;
+
+function initImportImageInput() {
+  // Prefer the hidden input in index.html, but also work if it doesn't exist.
+  importImageInput = document.getElementById('importImageInput');
+  if (!importImageInput) {
+    importImageInput = document.createElement('input');
+    importImageInput.type = 'file';
+    importImageInput.accept = 'image/*';
+    importImageInput.style.display = 'none';
+    document.body.appendChild(importImageInput);
+  }
+
+  importImageInput.addEventListener('change', function() {
+    try {
+      var file = importImageInput.files && importImageInput.files[0];
+      // Allow re-importing the same file twice
+      importImageInput.value = '';
+      if (!file) return;
+
+      var row = importTargetRow;
+      var layer = importTargetLayer;
+      if (row < 0 || layer < 0) return;
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+          if (typeof importImageIntoCellAsSelection === 'function') {
+            importImageIntoCellAsSelection(row, layer, img);
+          } else {
+            // Fallback: draw directly into the cell (no transform).
+            var before = captureCellImage(row, layer);
+            ensureCellDrawing(row, layer, false);
+            var cell = xsheet[row][layer];
+            var c = cell.drawing;
+            var ctx = c.getContext('2d');
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+            var after = captureCellImage(row, layer);
+            if (typeof pushHistoryCellChange === 'function') {
+              pushHistoryCellChange(row, layer, before, after, 'Import image');
+            }
+            refreshXsheetUI();
+            if (typeof redrawDisplay === 'function') redrawDisplay();
+          }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Import image failed:', err);
+    }
+  });
+}
+
+function requestImportImageForCell(row, layer) {
+  if (row < 0 || layer < 0) return;
+
+  // Bake any active selection before starting a new import.
+  if (typeof commitActiveSelection === 'function') {
+    commitActiveSelection();
+  }
+
+  importTargetRow = row;
+  importTargetLayer = layer;
+  if (importImageInput) {
+    importImageInput.click();
+  }
+}
 
 function initCellContextMenu() {
   cellContextMenu = document.getElementById('cellContextMenu');
   if (!cellContextMenu) return;
+
+  // Init import input (uses the hidden input from index.html)
+  initImportImageInput();
 
   cellContextMenu.addEventListener('click', function(ev) {
     var btn = ev.target.closest('button[data-action]');
@@ -943,6 +1020,7 @@ function initCellContextMenu() {
     else if (action === 'copy') copySelectionOrCell();
     else if (action === 'paste') pasteSelectionOrCell();
     else if (action === 'duplicate') duplicateCurrentCellToNextRow();
+    else if (action === 'importImage') requestImportImageForCell(selectedRow, selectedLayer);
   });
 
   document.addEventListener('click', function(ev) {
